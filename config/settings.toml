@@ -1,0 +1,25 @@
+[db]
+name = "postgres"
+user = "postgres"
+password = "joop2oPh"
+host = "localhost:5432"
+
+[spotify]
+client_id = "CLIENT_ID"
+client_secret = "CLIENT_SECRET"
+redirect_uri = "http://localhost:4815/callback"
+scopes = [
+  "user-read-private",
+  "playlist-read-collaborative",
+  "playlist-modify-public",
+  "playlist-modify-private",
+  "streaming",
+  "ugc-image-upload",
+  "user-follow-modify",
+  "user-follow-read",
+  "user-library-read",
+  "user-library-modify",
+  "user-read-private",
+  "user-read-email",
+  "user-top-read",
+]

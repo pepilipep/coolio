@@ -1,51 +1,28 @@
+mod parser;
+mod service;
 mod settings;
+mod spotify;
+mod storage;
 
-use std::collections::HashSet;
-
-use rspotify::{prelude::*, AuthCodeSpotify, Config, Credentials, OAuth};
+use parser::Parser;
 
 use settings::Settings;
+use spotify::new_spotify;
 
-use clap::{app_from_crate, arg};
+use rspotify::prelude::*;
 
 #[tokio::main]
 async fn main() {
-    let matches = app_from_crate!()
-        .arg(arg!(--test <VALUE>))
-        .arg(arg!(--test2 <VALUE>))
-        .get_matches();
-
-    println!(
-        "test - {:?}, test2 - {:?}",
-        matches.value_of("test").expect("required"),
-        matches.value_of("test2").expect("required")
-    );
-
     env_logger::init();
 
+    let parser = Parser::new();
     let settings = Settings::new().unwrap();
+    let spotify = new_spotify(settings.spotify).await;
 
-    let creds = Credentials::new(&settings.spotify.client_id, &settings.spotify.client_secret);
-
-    let oauth = OAuth {
-        redirect_uri: settings.spotify.redirect_uri,
-        scopes: HashSet::from_iter(settings.spotify.scopes),
-        ..Default::default()
-    };
-
-    let conf = Config {
-        token_cached: true,
-        token_refreshing: true,
-        ..Config::default()
-    };
-    let mut spotify = AuthCodeSpotify::with_config(creds, oauth, conf);
-
-    // Obtaining the access token
-    let url = spotify.get_authorize_url(false).unwrap();
-    spotify.prompt_for_token(&url).await.unwrap();
+    parser.parse();
 
     let artists = spotify
-        .current_user_top_artists_manual(None, None, None)
+        .current_user_top_artists_manual(None, Some(1), None)
         .await
         .unwrap();
 

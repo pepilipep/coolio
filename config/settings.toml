@@ -10,7 +10,7 @@ client_id = "CLIENT_ID"
 client_secret = "CLIENT_SECRET"
 redirect_uri = "http://localhost:4815/callback"
 scopes = [
-  "user-read-private",
+  "playlist-read-private",
   "playlist-read-collaborative",
   "playlist-modify-public",
   "playlist-modify-private",

@@ -1,11 +1,10 @@
-pub mod models;
 pub mod psql;
 
 use async_trait::async_trait;
 
 use crate::error::CoolioError;
 
-use self::models::Listen;
+use crate::models::Listen;
 
 #[async_trait]
 pub trait Storage {

@@ -3,7 +3,7 @@
 `coolio` is a CLI tool which enables some extra features for your Spotify.
 It is implemented in Rust, so you can install it using `cargo`:
 
-```
+```bash
 cargo install --path .
 ```
 
@@ -11,7 +11,7 @@ cargo install --path .
 
 `coolio` uses `postgres` for storage, so you would need to do bring up a postgres instance for it. You can do that using `docker` for example:
 
-```
+```bash
 cd config
 docker-compose -f docker-compose-storage-yml up -d
 ```
@@ -24,12 +24,12 @@ To enable one of its feature, it would need to record history for you for some p
 
 Update of the history happens with this command:
 
-```
+```bash
 coolio history update
 ```
 
 You need to somehow automate execution of this command consistently over time. I do this using `crontab`, here is my crontab setting (runs every 10 minutes):
 
-```
+```bash
 0-59/10 * * * * cd <path-to-source>/coolio && <path-to-executable>/coolio history update
 ```

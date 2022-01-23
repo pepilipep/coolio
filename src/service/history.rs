@@ -1,9 +1,6 @@
 use async_trait::async_trait;
 
-use crate::{
-    error::CoolioError,
-    storage::{models::Listen, Storage},
-};
+use crate::{error::CoolioError, models::Listen, storage::Storage};
 use rspotify::model::misc::TimeLimits;
 use rspotify::prelude::*;
 use rspotify::AuthCodeSpotify;
@@ -13,7 +10,7 @@ pub trait History<S: Storage + Send + Sync> {
     fn get_spotify(&self) -> &AuthCodeSpotify;
     fn get_storage(&self) -> &S;
 
-    async fn update(&self) -> Result<(), CoolioError> {
+    async fn history_update(&self) -> Result<(), CoolioError> {
         let spotify = self.get_spotify();
         let storage = self.get_storage();
 

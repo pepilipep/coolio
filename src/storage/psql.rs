@@ -2,7 +2,8 @@ use crate::{error::CoolioError, settings::Database};
 use async_trait::async_trait;
 use tokio_postgres::{Client, NoTls};
 
-use super::{models::Listen, Storage};
+use super::Storage;
+use crate::models::Listen;
 
 pub struct Psql {
     client: Client,

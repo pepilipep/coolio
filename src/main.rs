@@ -1,5 +1,6 @@
 mod builder;
 mod error;
+mod models;
 mod parser;
 mod service;
 mod settings;

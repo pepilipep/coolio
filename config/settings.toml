@@ -1,9 +1,9 @@
 [storage]
 adapter = "psql"
-name = "spotify"
-user = "postgres"
-password = "joop2oPh"
 host = "localhost:5432"
+name = "spotify"
+password = "joop2oPh"
+user = "postgres"
 
 [spotify]
 client_id = "CLIENT_ID"
@@ -23,4 +23,5 @@ scopes = [
   "user-read-private",
   "user-read-email",
   "user-top-read",
+  "user-read-recently-played",
 ]

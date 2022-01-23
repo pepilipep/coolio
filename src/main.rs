@@ -1,25 +1,32 @@
 mod builder;
+mod error;
 mod parser;
 mod service;
 mod settings;
 mod storage;
 
+use error::CoolioError;
 use parser::Parser;
 
 use builder::{new_spotify, new_storage};
+use service::Service;
 use settings::Settings;
 
-use rspotify::prelude::*;
+async fn execute() -> Result<(), CoolioError> {
+    let parser = Parser::new();
+    let settings = Settings::new()?;
+    let spotify = new_spotify(settings.spotify).await;
+    let storage = new_storage(settings.storage).await?;
+    let service = Service::new(spotify, storage);
+
+    parser.parse(service).await
+}
 
 #[tokio::main]
 async fn main() {
     env_logger::init();
 
-    let parser = Parser::new();
-    let settings = Settings::new().unwrap();
-    let spotify = new_spotify(settings.spotify).await;
-    let storage = new_storage(settings.storage).await.unwrap();
-    storage.create_playlist().await;
-
-    parser.parse();
+    if let Err(e) = execute().await {
+        println!("Encountered error: {}", e)
+    }
 }

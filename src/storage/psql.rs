@@ -1,16 +1,15 @@
-use crate::settings::Database;
+use crate::{error::CoolioError, settings::Database};
 use async_trait::async_trait;
-use std::format;
-use tokio_postgres::{Client, Error, NoTls};
+use tokio_postgres::{Client, NoTls};
 
-use super::Storage;
+use super::{models::Listen, Storage};
 
 pub struct Psql {
     client: Client,
 }
 
 impl Psql {
-    pub async fn new(conf: Database) -> Result<Box<dyn Storage>, Error> {
+    pub async fn new(conf: Database) -> Result<Self, CoolioError> {
         let conn_str = format!(
             "postgresql://{user}:{password}@{host}/{dbname}",
             user = conf.user,
@@ -25,20 +24,21 @@ impl Psql {
             }
         });
 
-        Ok(Box::new(Psql { client }))
+        Ok(Psql { client })
     }
 }
 
 #[async_trait]
 impl Storage for Psql {
-    async fn create_playlist(&self) -> () {
-        let results = self
+    async fn add_history(&self, listen: Listen) -> Result<(), CoolioError> {
+        let query_text = "INSERT INTO listen VALUES ($1, $2)";
+
+        let res = self
             .client
-            .query("SELECT * FROM listen", &[])
-            .await
-            .unwrap();
-        for res in results {
-            println!("{:?}", res);
-        }
+            .execute(query_text, &[&listen.song_id, &listen.time])
+            .await?;
+        println!("{:?}", res);
+
+        Ok(())
     }
 }

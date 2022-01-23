@@ -2,7 +2,7 @@ CREATE DATABASE spotify;
 
 CREATE TABLE IF NOT EXISTS listen(
     song_id TEXT,
-    time TIMESTAMP
+    time TIMESTAMP WITH TIME ZONE
 );
 
 CREATE TABLE IF NOT EXISTS playlist_arists(

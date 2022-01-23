@@ -36,3 +36,9 @@ impl From<ConfigError> for CoolioError {
         }
     }
 }
+
+impl From<&str> for CoolioError {
+    fn from(s: &str) -> Self {
+        CoolioError { msg: s.to_string() }
+    }
+}

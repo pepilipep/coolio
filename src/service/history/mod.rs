@@ -1,12 +1,12 @@
-use rspotify::AuthCodeSpotify;
-
 use async_trait::async_trait;
 
 use crate::{
     error::CoolioError,
     storage::{models::Listen, Storage},
 };
+use rspotify::model::misc::TimeLimits;
 use rspotify::prelude::*;
+use rspotify::AuthCodeSpotify;
 
 #[async_trait]
 pub trait History<S: Storage + Send + Sync> {
@@ -17,7 +17,11 @@ pub trait History<S: Storage + Send + Sync> {
         let spotify = self.get_spotify();
         let storage = self.get_storage();
 
-        let recent = spotify.current_user_recently_played(Some(50), None).await?;
+        let last_listen = storage.get_last_listen().await?;
+
+        let recent = spotify
+            .current_user_recently_played(Some(50), Some(TimeLimits::After(last_listen.time)))
+            .await?;
 
         for song in recent.items {
             storage

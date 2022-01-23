@@ -10,4 +10,6 @@ use self::models::Listen;
 #[async_trait]
 pub trait Storage {
     async fn add_history(&self, listen: Listen) -> Result<(), CoolioError>;
+
+    async fn get_last_listen(&self) -> Result<Listen, CoolioError>;
 }

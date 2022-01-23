@@ -37,8 +37,24 @@ impl Storage for Psql {
             .client
             .execute(query_text, &[&listen.song_id, &listen.time])
             .await?;
-        println!("{:?}", res);
 
-        Ok(())
+        if res != 1 {
+            Err(CoolioError::from("no values inserted"))
+        } else {
+            Ok(())
+        }
+    }
+
+    async fn get_last_listen(&self) -> Result<Listen, CoolioError> {
+        let query_text = "SELECT song_id, time FROM listen ORDER BY time DESC LIMIT 1";
+
+        for row in self.client.query(query_text, &[]).await? {
+            return Ok(Listen {
+                song_id: row.get(0),
+                time: row.get(1),
+            });
+        }
+
+        Err(CoolioError::from("no listens found"))
     }
 }

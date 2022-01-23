@@ -18,9 +18,16 @@ pub struct Database {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(tag = "adapter")]
+pub enum Storage {
+    #[serde(rename = "psql")]
+    Psql(Database),
+}
+
+#[derive(Debug, Deserialize)]
 pub struct Settings {
     pub spotify: Spotify,
-    pub db: Database,
+    pub storage: Storage,
 }
 
 impl Settings {

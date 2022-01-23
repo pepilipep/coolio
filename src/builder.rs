@@ -1,8 +1,11 @@
 use std::collections::HashSet;
 
 use rspotify::{prelude::*, AuthCodeSpotify, Config, Credentials, OAuth};
+use tokio_postgres::Error;
 
-use crate::settings::Spotify;
+use crate::settings::{Spotify, Storage as StorageConf};
+use crate::storage::psql::Psql;
+use crate::storage::Storage;
 
 pub async fn new_spotify(conf: Spotify) -> AuthCodeSpotify {
     let creds = Credentials::new(&conf.client_id, &conf.client_secret);
@@ -25,4 +28,10 @@ pub async fn new_spotify(conf: Spotify) -> AuthCodeSpotify {
     spotify.prompt_for_token(&url).await.unwrap();
 
     spotify
+}
+
+pub async fn new_storage(conf: StorageConf) -> Result<Box<dyn Storage>, Error> {
+    match conf {
+        StorageConf::Psql(db) => Psql::new(db).await,
+    }
 }

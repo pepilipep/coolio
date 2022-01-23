@@ -1,5 +1,6 @@
-[db]
-name = "postgres"
+[storage]
+adapter = "psql"
+name = "spotify"
 user = "postgres"
 password = "joop2oPh"
 host = "localhost:5432"

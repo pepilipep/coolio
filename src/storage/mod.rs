@@ -1,5 +1,8 @@
 pub mod psql;
 
+use async_trait::async_trait;
+
+#[async_trait]
 pub trait Storage {
-    fn create_playlist(&self) -> ();
+    async fn create_playlist(&self) -> ();
 }

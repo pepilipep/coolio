@@ -191,13 +191,14 @@ dependencies = [
 name = "coolio"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "clap",
  "config",
  "env_logger",
- "postgres",
  "rspotify",
  "serde 1.0.134",
  "tokio",
+ "tokio-postgres",
 ]
 
 [[package]]
@@ -926,20 +927,6 @@ name = "pkg-config"
 version = "0.3.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "58893f751c9b0412871a09abd62ecd2a00298c6c83befa223ef98c52aef40cbe"
-
-[[package]]
-name = "postgres"
-version = "0.19.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eb76d6535496f633fa799bb872ffb4790e9cbdedda9d35564ca0252f930c0dd5"
-dependencies = [
- "bytes",
- "fallible-iterator",
- "futures",
- "log",
- "tokio",
- "tokio-postgres",
-]
 
 [[package]]
 name = "postgres-protocol"

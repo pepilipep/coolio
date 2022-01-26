@@ -16,6 +16,7 @@ pub trait Playlists<S: Storage + Send + Sync> {
 
     async fn list_playlists(&self) -> Result<(), CoolioError> {
         let spotify = self.get_spotify();
+        let storage = self.get_storage();
 
         let limit = 50;
         let mut offset = 0;
@@ -32,6 +33,7 @@ pub trait Playlists<S: Storage + Send + Sync> {
                     id: playlist.id.uri(),
                     name: playlist.name,
                     artists: Vec::<String>::new(),
+                    automated: false,
                 })
             }
 
@@ -42,7 +44,22 @@ pub trait Playlists<S: Storage + Send + Sync> {
             offset += limit;
         }
 
-        println!("{:?}", playlists);
+        let mut stored_playlists = storage.get_playlists().await?;
+
+        stored_playlists.append(&mut playlists);
+        stored_playlists.dedup_by_key(|p| p.id.clone());
+
+        for playlist in stored_playlists {
+            if playlist.automated {
+                println!(
+                    "{} [automated, number of artists: {}]",
+                    playlist.name,
+                    playlist.artists.len()
+                )
+            } else {
+                println!("{}", playlist.name);
+            }
+        }
 
         Ok(())
     }

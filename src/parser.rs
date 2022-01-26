@@ -23,12 +23,12 @@ impl Parser {
                     .subcommand(
                         App::new("create")
                             .about("Creates an automated playlist")
-                            .arg(arg!(--name <NAME>)),
+                            .arg(arg!(<PLAYLIST> "the name of the playlist")),
                     )
                     .subcommand(
                         App::new("link")
                             .about("Links an artist to an automated playlist")
-                            .arg(arg!(<PLAYLIS> "the name of the playlist"))
+                            .arg(arg!(<PLAYLIST> "the name of the playlist"))
                             .arg(arg!(<ARTIST> "the name of the artist")),
                     ),
             )
@@ -49,13 +49,13 @@ impl Parser {
                 Some(("list", _list_matches)) => service.list_playlists().await,
                 Some(("create", create_matches)) => {
                     service
-                        .create_playlist(create_matches.value_of("name").unwrap())
+                        .create_playlist(create_matches.value_of("PLAYLIST").unwrap())
                         .await
                 }
                 Some(("link", link_matches)) => {
                     service
                         .link_playlist_to_artist(
-                            link_matches.value_of("PLAYLIS").unwrap(),
+                            link_matches.value_of("PLAYLIST").unwrap(),
                             link_matches.value_of("ARTIST").unwrap(),
                         )
                         .await

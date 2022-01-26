@@ -14,6 +14,8 @@ pub trait Storage {
 
     async fn create_playlist(&self, id: &str, name: &str) -> Result<(), CoolioError>;
 
+    async fn get_playlists(&self) -> Result<Vec<Playlist>, CoolioError>;
+
     async fn get_playlist(&self, name: &str) -> Result<Playlist, CoolioError>;
 
     async fn link_artist(

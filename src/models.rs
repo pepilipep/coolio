@@ -11,4 +11,5 @@ pub struct Playlist {
     pub id: String,
     pub name: String,
     pub artists: Vec<String>,
+    pub automated: bool,
 }

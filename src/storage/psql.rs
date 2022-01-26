@@ -73,6 +73,30 @@ impl Storage for Psql {
         }
     }
 
+    async fn get_playlists(&self) -> Result<Vec<Playlist>, CoolioError> {
+        let query_text = "
+        SELECT playlist_name, playlist_id, ARRAY_AGG(artist_id) AS \"artists\"
+        FROM playlist
+        WHERE artist_id IS NOT NULL
+        GROUP BY (playlist_name, playlist_id)";
+
+        let mut playlists = Vec::<Playlist>::new();
+
+        for row in self.client.query(query_text, &[]).await? {
+            let name = row.get(0);
+            let id = row.get(1);
+            let artists = row.get(2);
+            playlists.push(Playlist {
+                name,
+                id,
+                artists,
+                automated: true,
+            })
+        }
+
+        Ok(playlists)
+    }
+
     async fn get_playlist(&self, name: &str) -> Result<Playlist, CoolioError> {
         let query_text = "SELECT playlist_id, artist_id FROM playlist WHERE playlist_name = $1";
 
@@ -90,6 +114,7 @@ impl Storage for Psql {
                 id,
                 artists,
                 name: name.to_string(),
+                automated: true,
             })
         } else {
             Err(CoolioError::from("playlist doesnt exist"))

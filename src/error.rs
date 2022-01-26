@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{fmt, io};
 
 use config::ConfigError;
 
@@ -40,5 +40,13 @@ impl From<ConfigError> for CoolioError {
 impl From<&str> for CoolioError {
     fn from(s: &str) -> Self {
         CoolioError { msg: s.to_string() }
+    }
+}
+
+impl From<io::Error> for CoolioError {
+    fn from(e: io::Error) -> Self {
+        CoolioError {
+            msg: format!("IO error received: {}", e),
+        }
     }
 }

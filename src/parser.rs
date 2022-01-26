@@ -2,7 +2,7 @@ use crate::error::CoolioError;
 use crate::service::playlists::Playlists;
 use crate::service::Service;
 use crate::{service::history::History, storage::Storage};
-use clap::{app_from_crate, App, ArgMatches};
+use clap::{app_from_crate, arg, App, ArgMatches};
 
 pub struct Parser {
     matches: ArgMatches,
@@ -19,7 +19,18 @@ impl Parser {
             .subcommand(
                 App::new("playlists")
                     .about("Manage automated playlists")
-                    .subcommand(App::new("list").about("Lists the playlists")),
+                    .subcommand(App::new("list").about("Lists the playlists"))
+                    .subcommand(
+                        App::new("create")
+                            .about("Creates an automated playlist")
+                            .arg(arg!(--name <NAME>)),
+                    )
+                    .subcommand(
+                        App::new("link")
+                            .about("Links an artist to an automated playlist")
+                            .arg(arg!(<PLAYLIS> "the name of the playlist"))
+                            .arg(arg!(<ARTIST> "the name of the artist")),
+                    ),
             )
             .get_matches();
         Parser { matches }
@@ -36,6 +47,19 @@ impl Parser {
             },
             Some(("playlists", playlists_matches)) => match playlists_matches.subcommand() {
                 Some(("list", _list_matches)) => service.list_playlists().await,
+                Some(("create", create_matches)) => {
+                    service
+                        .create_playlist(create_matches.value_of("name").unwrap())
+                        .await
+                }
+                Some(("link", link_matches)) => {
+                    service
+                        .link_playlist_to_artist(
+                            link_matches.value_of("PLAYLIS").unwrap(),
+                            link_matches.value_of("ARTIST").unwrap(),
+                        )
+                        .await
+                }
                 _ => unreachable!(),
             },
             _ => unreachable!(),

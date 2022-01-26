@@ -5,7 +5,9 @@ CREATE TABLE IF NOT EXISTS listen(
     time TIMESTAMP WITH TIME ZONE
 );
 
-CREATE TABLE IF NOT EXISTS playlist_arists(
+CREATE TABLE IF NOT EXISTS playlist(
+    playlist_name TEXT,
     playlist_id TEXT,
-    artist_id TEXT
+    artist_id TEXT,
+    UNIQUE (playlist_id, artist_id)
 );

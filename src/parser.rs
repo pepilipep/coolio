@@ -23,13 +23,14 @@ impl Parser {
                     .subcommand(
                         App::new("create")
                             .about("Creates an automated playlist")
-                            .arg(arg!(<PLAYLIST> "the name of the playlist")),
+                            .arg(arg!(<PLAYLIST> "name of the playlist")),
                     )
                     .subcommand(
                         App::new("link")
                             .about("Links an artist to an automated playlist")
-                            .arg(arg!(<PLAYLIST> "the name of the playlist"))
-                            .arg(arg!(<ARTIST> "the name of the artist")),
+                            .arg(arg!(<PLAYLIST> "name of the playlist"))
+                            .arg(arg!(<ARTIST> "name of the artist"))
+                            .arg(arg!(-s --seed [SEED] "number of songs of the artist to seed into the playlist").validator(|x| x.parse::<usize>())),
                     ),
             )
             .get_matches();
@@ -57,6 +58,7 @@ impl Parser {
                         .link_playlist_to_artist(
                             link_matches.value_of("PLAYLIST").unwrap(),
                             link_matches.value_of("ARTIST").unwrap(),
+                            link_matches.value_of_t("seed").ok(),
                         )
                         .await
                 }

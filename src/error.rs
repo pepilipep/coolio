@@ -1,6 +1,7 @@
 use std::{fmt, io};
 
 use config::ConfigError;
+use rspotify::model::IdError;
 
 #[derive(Debug)]
 pub struct CoolioError {
@@ -25,6 +26,14 @@ impl From<rspotify::ClientError> for CoolioError {
     fn from(e: rspotify::ClientError) -> Self {
         CoolioError {
             msg: format!("Spotify API error received: {}", e),
+        }
+    }
+}
+
+impl From<IdError> for CoolioError {
+    fn from(e: IdError) -> Self {
+        CoolioError {
+            msg: format!("Spotify id extract error received: {}", e),
         }
     }
 }

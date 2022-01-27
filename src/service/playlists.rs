@@ -1,5 +1,9 @@
+use std::cmp::min;
+
 use async_trait::async_trait;
 
+use rspotify::model::Market;
+use rspotify::model::PlaylistId;
 use rspotify::model::SearchResult;
 use rspotify::model::SearchType;
 use rspotify::prelude::*;
@@ -82,6 +86,7 @@ pub trait Playlists<S: Storage + Send + Sync> {
         &self,
         playlist: &str,
         artist: &str,
+        seed: Option<usize>,
     ) -> Result<(), CoolioError> {
         let spotify = self.get_spotify();
         let storage = self.get_storage();
@@ -125,7 +130,26 @@ pub trait Playlists<S: Storage + Send + Sync> {
                     &playlist.name,
                     &artists.items[chosen - 1].id.uri(),
                 )
-                .await
+                .await?;
+
+            if let Some(seed) = seed {
+                let tracks = spotify
+                    .artist_top_tracks(&artists.items[chosen - 1].id, &Market::FromToken)
+                    .await?;
+
+                let seed = min(seed, tracks.len());
+
+                let seed_track_ids = tracks[..seed]
+                    .iter()
+                    .map(|x| x.id.as_ref().unwrap() as &dyn PlayableId)
+                    .collect::<Vec<&dyn PlayableId>>();
+
+                spotify
+                    .playlist_add_items(&PlaylistId::from_uri(&playlist.id)?, seed_track_ids, None)
+                    .await?;
+            }
+
+            Ok(())
         } else {
             unreachable!()
         }

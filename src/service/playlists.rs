@@ -91,6 +91,37 @@ pub trait Playlists<S: Storage + Send + Sync> {
         Ok(())
     }
 
+    async fn automate_playlist(&self, name: &str) -> Result<(), CoolioError> {
+        let spotify = self.get_spotify();
+        let storage = self.get_storage();
+
+        let mut offset = 0;
+        let limit = 50;
+        let mut playlist_id: Option<String> = None;
+        loop {
+            let fetched = spotify
+                .current_user_playlists_manual(Some(limit), Some(offset))
+                .await?;
+
+            for item in fetched.items {
+                if item.name == name {
+                    playlist_id = Some(item.id.uri());
+                    break;
+                }
+            }
+
+            if fetched.next.is_none() {
+                break;
+            }
+            offset += limit;
+        }
+
+        match playlist_id {
+            None => Err(CoolioError::from("The playlist doesn't exist")),
+            Some(id) => storage.create_playlist(&id, &name).await,
+        }
+    }
+
     async fn seed_artist_popular_into_playlist(
         &self,
         artist_id: &String,
@@ -314,8 +345,6 @@ pub trait Playlists<S: Storage + Send + Sync> {
 
     async fn playlist_update(&self, playlist: &Playlist) -> Result<(), CoolioError> {
         let last_song_for_artist = self.playlist_artist_last_add(playlist).await?;
-
-        println!("{:?}", last_song_for_artist);
 
         for artist_id in &playlist.artists {
             match last_song_for_artist.get(artist_id) {

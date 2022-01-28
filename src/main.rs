@@ -28,6 +28,6 @@ async fn main() {
     env_logger::init();
 
     if let Err(e) = execute().await {
-        println!("Encountered error: {}", e)
+        println!("{}", e)
     }
 }

@@ -75,9 +75,8 @@ impl Storage for Psql {
 
     async fn get_playlists(&self) -> Result<Vec<Playlist>, CoolioError> {
         let query_text = "
-        SELECT playlist_name, playlist_id, ARRAY_AGG(artist_id) AS \"artists\"
+        SELECT playlist_name, playlist_id, ARRAY_REMOVE(ARRAY_AGG(artist_id), NULL) AS \"artists\"
         FROM playlist
-        WHERE artist_id IS NOT NULL
         GROUP BY (playlist_name, playlist_id)";
 
         let mut playlists = Vec::<Playlist>::new();

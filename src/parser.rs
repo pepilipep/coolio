@@ -30,11 +30,18 @@ impl Parser {
                             .about("Links an artist to an automated playlist")
                             .arg(arg!(<PLAYLIST> "name of the playlist"))
                             .arg(arg!(<ARTIST> "name of the artist"))
-                            .arg(arg!(-s --seed [SEED] "number of songs of the artist to seed into the playlist").validator(|x| x.parse::<usize>())),
+                            .arg(
+                                arg!(-s --seed [SEED] "number of songs to seed")
+                                    .validator(|x| x.parse::<usize>()),
+                            ),
                     )
                     .subcommand(
-                        App::new("update")
-                            .about("Adds new artists' songs to the playlists")
+                        App::new("update").about("Adds new artists' songs to the playlists"),
+                    )
+                    .subcommand(
+                        App::new("automate")
+                            .about("Automates an already existing playlist in Spotify")
+                            .arg(arg!(<PLAYLIST> "name of the playlist")),
                     ),
             )
             .get_matches();
@@ -67,6 +74,11 @@ impl Parser {
                         .await
                 }
                 Some(("update", _update_matches)) => service.playlists_update().await,
+                Some(("automate", automate_matches)) => {
+                    service
+                        .automate_playlist(automate_matches.value_of("PLAYLIST").unwrap())
+                        .await
+                }
                 _ => unreachable!(),
             },
             _ => unreachable!(),

@@ -259,10 +259,10 @@ pub trait Playlists<S: Storage + Send + Sync> {
         let spotify = self.get_spotify();
         let mut tracks_to_add = Vec::<TrackId>::new();
 
-        let mut offset = 0;
-        let limit = 50;
-
         for album_id_to_add in albums {
+            let mut offset = 0;
+            let limit = 50;
+
             loop {
                 let fetched = spotify
                     .album_track_manual(

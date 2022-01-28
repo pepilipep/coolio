@@ -31,6 +31,10 @@ impl Parser {
                             .arg(arg!(<PLAYLIST> "name of the playlist"))
                             .arg(arg!(<ARTIST> "name of the artist"))
                             .arg(arg!(-s --seed [SEED] "number of songs of the artist to seed into the playlist").validator(|x| x.parse::<usize>())),
+                    )
+                    .subcommand(
+                        App::new("update")
+                            .about("Adds new artists' songs to the playlists")
                     ),
             )
             .get_matches();
@@ -62,6 +66,7 @@ impl Parser {
                         )
                         .await
                 }
+                Some(("update", _update_matches)) => service.playlists_update().await,
                 _ => unreachable!(),
             },
             _ => unreachable!(),

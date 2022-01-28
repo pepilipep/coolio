@@ -1,5 +1,6 @@
 use std::{fmt, io};
 
+use chrono::ParseError;
 use config::ConfigError;
 use rspotify::model::IdError;
 
@@ -56,6 +57,14 @@ impl From<io::Error> for CoolioError {
     fn from(e: io::Error) -> Self {
         CoolioError {
             msg: format!("IO error received: {}", e),
+        }
+    }
+}
+
+impl From<ParseError> for CoolioError {
+    fn from(e: ParseError) -> Self {
+        CoolioError {
+            msg: format!("Parsing time error: {}", e),
         }
     }
 }

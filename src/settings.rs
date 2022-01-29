@@ -27,6 +27,7 @@ pub struct LocalStorage {
 pub enum Storage {
     #[serde(rename = "psql")]
     Psql(Database),
+    #[serde(rename = "fs")]
     Fs(LocalStorage),
 }
 

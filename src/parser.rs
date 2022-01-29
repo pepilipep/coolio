@@ -1,7 +1,7 @@
 use crate::error::CoolioError;
+use crate::service::history::History;
 use crate::service::playlists::Playlists;
 use crate::service::Service;
-use crate::{service::history::History, storage::Storage};
 use clap::{app_from_crate, arg, App, AppSettings, ArgMatches};
 
 pub struct Parser {

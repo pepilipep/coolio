@@ -78,6 +78,33 @@ pub trait Playlists<S: Storage + Send + Sync> {
         Ok(())
     }
 
+    async fn show_playlist(&self, name: &str) -> Result<(), CoolioError> {
+        let storage = self.get_storage();
+        let spotify = self.get_spotify();
+
+        let playlist = storage.get_playlist(name).await?;
+        let external_playlist = spotify
+            .playlist(&PlaylistId::from_uri(&playlist.id)?, None, None)
+            .await?;
+
+        println!("Artists:");
+        for art_id in playlist.artists {
+            let artist = spotify.artist(&ArtistId::from_uri(&art_id)?).await?;
+            println!(
+                "\t{} (popularity: {}, followers: {})",
+                artist.name, artist.popularity, artist.followers.total
+            );
+        }
+
+        println!("Description: {:?}", external_playlist.description);
+        println!("Number of tracks: {}", external_playlist.tracks.total);
+        println!("Number of followers: {}", external_playlist.followers.total);
+        println!("Is collaborative: {}", external_playlist.collaborative);
+        println!("Is public: {:?}", external_playlist.public);
+
+        Ok(())
+    }
+
     async fn create_playlist(&self, name: &str) -> Result<(), CoolioError> {
         let spotify = self.get_spotify();
         let storage = self.get_storage();

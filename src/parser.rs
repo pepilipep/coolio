@@ -2,7 +2,7 @@ use crate::error::CoolioError;
 use crate::service::playlists::Playlists;
 use crate::service::Service;
 use crate::{service::history::History, storage::Storage};
-use clap::{app_from_crate, arg, App, ArgMatches};
+use clap::{app_from_crate, arg, App, AppSettings, ArgMatches};
 
 pub struct Parser {
     matches: ArgMatches,
@@ -11,13 +11,16 @@ pub struct Parser {
 impl Parser {
     pub fn new() -> Self {
         let matches = app_from_crate!()
+            .setting(AppSettings::SubcommandRequiredElseHelp)
             .subcommand(
                 App::new("history")
+                    .setting(AppSettings::SubcommandRequiredElseHelp)
                     .about("History of listened tracks")
                     .subcommand(App::new("update").about("Updates the recent history")),
             )
             .subcommand(
                 App::new("playlists")
+                    .setting(AppSettings::SubcommandRequiredElseHelp)
                     .about("Manage automated playlists")
                     .subcommand(App::new("list").about("Lists the playlists"))
                     .subcommand(
@@ -47,6 +50,11 @@ impl Parser {
                     .subcommand(
                         App::new("automate")
                             .about("Automates an already existing playlist in Spotify")
+                            .arg(arg!(<PLAYLIST> "name of the playlist")),
+                    )
+                    .subcommand(
+                        App::new("show")
+                            .about("Shows info for a playlist")
                             .arg(arg!(<PLAYLIST> "name of the playlist")),
                     ),
             )
@@ -91,6 +99,11 @@ impl Parser {
                 Some(("automate", automate_matches)) => {
                     service
                         .automate_playlist(automate_matches.value_of("PLAYLIST").unwrap())
+                        .await
+                }
+                Some(("show", show_matches)) => {
+                    service
+                        .show_playlist(show_matches.value_of("PLAYLIST").unwrap())
                         .await
                 }
                 _ => unreachable!(),

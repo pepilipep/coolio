@@ -40,10 +40,24 @@ impl Storage for Psql {
             .await?;
 
         if res != 1 {
-            Err(CoolioError::from("no values inserted"))
+            Err("no values inserted".into())
         } else {
             Ok(())
         }
+    }
+
+    async fn get_history(&self) -> Result<Vec<Listen>, CoolioError> {
+        let query_text = "SELECT song_id, time FROM listen ORDER BY time";
+        let mut history = Vec::<Listen>::new();
+        let h = self.client.query(query_text, &[]).await?;
+
+        for row in h {
+            history.push(Listen {
+                song_id: row.get(0),
+                time: row.get(1),
+            })
+        }
+        Ok(history)
     }
 
     async fn get_last_listen(&self) -> Result<Listen, CoolioError> {
@@ -56,7 +70,7 @@ impl Storage for Psql {
             });
         }
 
-        Err(CoolioError::from("no listens found"))
+        Err("no listens found".into())
     }
 
     async fn create_playlist(&self, id: &str, name: &str) -> Result<(), CoolioError> {
@@ -67,7 +81,7 @@ impl Storage for Psql {
             .execute(query_text, &[&id.to_string(), &name.to_string()])
             .await?;
         if res != 1 {
-            Err(CoolioError::from("error in inserting of playlist"))
+            Err("error in inserting of playlist".into())
         } else {
             Ok(())
         }
@@ -116,7 +130,7 @@ impl Storage for Psql {
                 automated: true,
             })
         } else {
-            Err(CoolioError::from("playlist doesnt exist"))
+            Err("playlist doesnt exist".into())
         }
     }
 
@@ -142,7 +156,7 @@ impl Storage for Psql {
             .await?;
 
         if res != 1 {
-            Err(CoolioError::from("artist not linked to playlist"))
+            Err("artist not linked to playlist".into())
         } else {
             Ok(())
         }
@@ -160,7 +174,7 @@ impl Storage for Psql {
             .await?;
 
         if res != 1 {
-            Err(CoolioError::from("artist not linked to playlist"))
+            Err("artist not linked to playlist".into())
         } else {
             Ok(())
         }

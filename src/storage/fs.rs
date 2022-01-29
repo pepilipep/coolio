@@ -115,6 +115,16 @@ impl Storage for Fs {
         Ok(())
     }
 
+    async fn get_history(&self) -> Result<Vec<Listen>, CoolioError> {
+        let mut rdr = self.get_reader(StorageFile::History)?;
+        let mut history = Vec::<Listen>::new();
+        for record in rdr.deserialize() {
+            let l: ListenRecord = record?;
+            history.push(l.into());
+        }
+        Ok(history)
+    }
+
     async fn get_last_listen(&self) -> Result<Listen, CoolioError> {
         let mut rdr = self.get_reader(StorageFile::History)?;
         let mut listen: Option<ListenRecord> = None;
@@ -130,7 +140,7 @@ impl Storage for Fs {
         }
 
         match listen {
-            None => Err(CoolioError::from("no listen history")),
+            None => Err("no listen history".into()),
             Some(l) => Ok(l.into()),
         }
     }
@@ -182,7 +192,7 @@ impl Storage for Fs {
                 return Ok(playlist);
             }
         }
-        Err(CoolioError::from("playlist doesn't exist"))
+        Err("playlist doesn't exist".into())
     }
 
     async fn link_artist(

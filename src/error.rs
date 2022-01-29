@@ -1,4 +1,4 @@
-use std::{fmt, io};
+use std::{error, fmt, io};
 
 use chrono::ParseError;
 use config::ConfigError;
@@ -14,6 +14,8 @@ impl fmt::Display for CoolioError {
         write!(f, "{}", self.msg)
     }
 }
+
+impl error::Error for CoolioError {}
 
 impl From<tokio_postgres::Error> for CoolioError {
     fn from(e: tokio_postgres::Error) -> Self {
@@ -50,6 +52,12 @@ impl From<ConfigError> for CoolioError {
 impl From<&str> for CoolioError {
     fn from(s: &str) -> Self {
         CoolioError { msg: s.to_string() }
+    }
+}
+
+impl From<String> for CoolioError {
+    fn from(s: String) -> Self {
+        CoolioError { msg: s }
     }
 }
 

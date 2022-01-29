@@ -11,6 +11,8 @@ use crate::models::{Listen, Playlist};
 pub trait Storage {
     async fn add_history(&self, listen: Listen) -> Result<(), CoolioError>;
 
+    async fn get_history(&self) -> Result<Vec<Listen>, CoolioError>;
+
     async fn get_last_listen(&self) -> Result<Listen, CoolioError>;
 
     async fn create_playlist(&self, id: &str, name: &str) -> Result<(), CoolioError>;

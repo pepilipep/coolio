@@ -145,7 +145,7 @@ pub trait Playlists {
         }
 
         match playlist_id {
-            None => Err(CoolioError::from("The playlist doesn't exist")),
+            None => Err("The playlist doesn't exist".into()),
             Some(id) => storage.create_playlist(&id, &name).await,
         }
     }
@@ -258,17 +258,13 @@ pub trait Playlists {
             }
 
             match potential.len() {
-                0 => Err(CoolioError::from(
-                    "no artists in the playlist matched your search",
-                )),
+                0 => Err("no artists in the playlist matched your search".into()),
                 1 => {
                     storage
                         .unlink_artist(&playlist.id, &potential[0].id.uri())
                         .await
                 }
-                _ => Err(CoolioError::from(
-                    "ambigious artists found, try again more concrete",
-                )),
+                _ => Err("ambigious artists found, try again more concrete".into()),
             }
         } else {
             unreachable!()

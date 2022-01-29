@@ -1,7 +1,7 @@
-use crate::error::CoolioError;
 use crate::service::history::History;
 use crate::service::playlists::Playlists;
 use crate::service::Service;
+use crate::{error::CoolioError, models::ThrowbackPeriod};
 use clap::{app_from_crate, arg, App, AppSettings, ArgMatches};
 
 pub struct Parser {
@@ -16,7 +16,20 @@ impl Parser {
                 App::new("history")
                     .setting(AppSettings::SubcommandRequiredElseHelp)
                     .about("History of listened tracks")
-                    .subcommand(App::new("update").about("Updates the recent history")),
+                    .subcommand(App::new("update").about("Updates the recent history"))
+                    .subcommand(
+                        App::new("throwback")
+                            .about("Create a playlist of throwback songs")
+                            .arg(arg!(-n --name [NAME] "the name of the playlist"))
+                            .arg(
+                                arg!(-p --period [PERIOD] "period of the throwback")
+                                    .validator(|x| x.parse::<ThrowbackPeriod>()),
+                            )
+                            .arg(
+                                arg!(-s --size [SIZE] "size of the playlist")
+                                    .validator(|x| x.parse::<usize>()),
+                            ),
+                    ),
             )
             .subcommand(
                 App::new("playlists")
@@ -66,6 +79,15 @@ impl Parser {
         match self.matches.subcommand() {
             Some(("history", history_matches)) => match history_matches.subcommand() {
                 Some(("update", _update_matches)) => service.history_update().await,
+                Some(("throwback", throwback_matches)) => {
+                    service
+                        .throwback(
+                            throwback_matches.value_of("name"),
+                            throwback_matches.value_of_t("period").ok(),
+                            throwback_matches.value_of_t("size").ok(),
+                        )
+                        .await
+                }
                 _ => unreachable!(),
             },
             Some(("playlists", playlists_matches)) => match playlists_matches.subcommand() {

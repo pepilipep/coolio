@@ -9,6 +9,7 @@ use chrono::Utc;
 
 use rspotify::model::AlbumId;
 use rspotify::model::ArtistId;
+use rspotify::model::FullArtist;
 use rspotify::model::Market;
 use rspotify::model::PlayableItem;
 use rspotify::model::PlaylistId;
@@ -142,7 +143,7 @@ pub trait Playlists<S: Storage + Send + Sync> {
             .collect::<Vec<&dyn PlayableId>>();
 
         spotify
-            .playlist_add_items(&PlaylistId::from_uri(playlist_id)?, seed_track_ids, None)
+            .playlist_add_items(&PlaylistId::from_uri(playlist_id)?, seed_track_ids, Some(0))
             .await?;
 
         Ok(())
@@ -202,6 +203,46 @@ pub trait Playlists<S: Storage + Send + Sync> {
             }
 
             Ok(())
+        } else {
+            unreachable!()
+        }
+    }
+
+    async fn unlink_artist_from_playlist(
+        &self,
+        playlist: &str,
+        artist: &str,
+    ) -> Result<(), CoolioError> {
+        let spotify = self.get_spotify();
+        let storage = self.get_storage();
+
+        let playlist = storage.get_playlist(playlist).await?;
+
+        let potentials_artists = spotify
+            .search(artist, &SearchType::Artist, None, None, Some(5), None)
+            .await?;
+
+        if let SearchResult::Artists(artists) = potentials_artists {
+            let mut potential = Vec::<&FullArtist>::new();
+            for art in &artists.items {
+                if playlist.artists.contains(&art.id.uri()) {
+                    potential.push(art);
+                }
+            }
+
+            match potential.len() {
+                0 => Err(CoolioError::from(
+                    "no artists in the playlist matched your search",
+                )),
+                1 => {
+                    storage
+                        .unlink_artist(&playlist.id, &potential[0].id.uri())
+                        .await
+                }
+                _ => Err(CoolioError::from(
+                    "ambigious artists found, try again more concrete",
+                )),
+            }
         } else {
             unreachable!()
         }
@@ -306,7 +347,7 @@ pub trait Playlists<S: Storage + Send + Sync> {
                 .playlist_add_items(
                     &PlaylistId::from_uri(playlist_id)?,
                     tracks_as_playable_ids,
-                    None,
+                    Some(0),
                 )
                 .await?;
         }

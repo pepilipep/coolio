@@ -24,4 +24,6 @@ pub trait Storage {
         playlist_name: &str,
         artist_id: &str,
     ) -> Result<(), CoolioError>;
+
+    async fn unlink_artist(&self, playlist_id: &str, artist_id: &str) -> Result<(), CoolioError>;
 }

@@ -147,4 +147,22 @@ impl Storage for Psql {
             Ok(())
         }
     }
+
+    async fn unlink_artist(&self, playlist_id: &str, artist_id: &str) -> Result<(), CoolioError> {
+        let query_text = "DELETE FROM playlist WHERE playlist_id = $1 AND artist_id = $2";
+
+        let res = self
+            .client
+            .execute(
+                query_text,
+                &[&playlist_id.to_string(), &artist_id.to_string()],
+            )
+            .await?;
+
+        if res != 1 {
+            Err(CoolioError::from("artist not linked to playlist"))
+        } else {
+            Ok(())
+        }
+    }
 }

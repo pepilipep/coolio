@@ -27,13 +27,19 @@ impl Parser {
                     )
                     .subcommand(
                         App::new("link")
-                            .about("Links an artist to an automated playlist")
+                            .about("Links the artist to an automated playlist")
                             .arg(arg!(<PLAYLIST> "name of the playlist"))
                             .arg(arg!(<ARTIST> "name of the artist"))
                             .arg(
                                 arg!(-s --seed [SEED] "number of songs to seed")
                                     .validator(|x| x.parse::<usize>()),
                             ),
+                    )
+                    .subcommand(
+                        App::new("unlink")
+                            .about("Unlinks the artist from the playlist")
+                            .arg(arg!(<PLAYLIST> "name of the playlist"))
+                            .arg(arg!(<ARTIST> "name of the artist")),
                     )
                     .subcommand(
                         App::new("update").about("Adds new artists' songs to the playlists"),
@@ -70,6 +76,14 @@ impl Parser {
                             link_matches.value_of("PLAYLIST").unwrap(),
                             link_matches.value_of("ARTIST").unwrap(),
                             link_matches.value_of_t("seed").ok(),
+                        )
+                        .await
+                }
+                Some(("unlink", unlink_matches)) => {
+                    service
+                        .unlink_artist_from_playlist(
+                            unlink_matches.value_of("PLAYLIST").unwrap(),
+                            unlink_matches.value_of("ARTIST").unwrap(),
                         )
                         .await
                 }

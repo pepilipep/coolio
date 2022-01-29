@@ -3,8 +3,8 @@ adapter = "fs"
 path = "./.storage"
 
 [spotify]
-client_id = "CLIENT_ID"
-client_secret = "CLIENT_SECRET"
+client_id = "5ee0bb3d7a014e5599f578a1386f0cb2"
+client_secret = "89abcef6e291449bada520bb3b101713"
 redirect_uri = "http://localhost:4815/callback"
 scopes = [
   "playlist-read-private",

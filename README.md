@@ -9,7 +9,7 @@ cargo install --path .
 
 ## Spinning things up
 
-`coolio` uses `postgres` for storage, so you would need to do bring up a postgres instance for it. You can do that using `docker` for example:
+`coolio` can use either filesystem or `postgres` for storage. If you want to go with a database, you would need to do bring up a postgres instance for it. You can do that using `docker` for example:
 
 ```bash
 cd config
@@ -18,9 +18,25 @@ docker-compose -f docker-compose-storage-yml up -d
 
 After that you should run the migrations (located in `config/migrations.sql`) against the postgres db. 
 
+## Playlists automation
+
+Creating a playlist and linking artists to it is as simple as:
+
+```bash
+coolio playlists create <name>
+coolio playlist link <playlist> <artist>
+```
+
+Bringing the automated playlists up-to-date happens with:
+```bash
+coolio playlists update
+```
+
+For full details on what you can do, just browse the help.
+
 ## Listen history tracking
 
-To enable one of its feature, it would need to record history for you for some period of time. That is because of the limitation of the Spotify API.
+To enable one of its feature, `coolio` would need to record history for you for some period of time. That is because of the limitation of the Spotify API.
 
 Update of the history happens with this command:
 
@@ -28,8 +44,11 @@ Update of the history happens with this command:
 coolio history update
 ```
 
-You need to somehow automate execution of this command consistently over time. I do this using `crontab`, here is my crontab setting (runs every 10 minutes):
+## Automating calls
+
+You need to somehow automate execution of the `update` commands consistently over time. I do this using `crontab` and here are my settings. It runs `history` updates every 30 minutes and `playlists` updates twice a day:
 
 ```bash
-0-59/10 * * * * cd <path-to-source>/coolio && <path-to-executable>/coolio history update
+0-59/30 * * * * cd <path-to-source>/coolio && <path-to-executable>/coolio history update
+15 0-23/12 * * * cd <path-to-source>/coolio && <path-to-executable>/coolio playlists update
 ```

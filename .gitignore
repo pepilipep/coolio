@@ -1,2 +1,4 @@
 /target
 **/data
+.storage/**
+.spotify_token_cache.json

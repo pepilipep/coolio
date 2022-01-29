@@ -109,7 +109,7 @@ impl Fs {
 #[async_trait]
 impl Storage for Fs {
     async fn add_history(&self, listen: Listen) -> Result<(), CoolioError> {
-        let mut wtr = self.get_writer(StorageFile::Links, true)?;
+        let mut wtr = self.get_writer(StorageFile::History, true)?;
         wtr.serialize(&ListenRecord::from(listen))?;
         wtr.flush()?;
         Ok(())

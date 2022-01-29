@@ -1,9 +1,6 @@
 [storage]
-adapter = "psql"
-host = "localhost:5432"
-name = "spotify"
-password = "joop2oPh"
-user = "postgres"
+adapter = "fs"
+path = "./.storage"
 
 [spotify]
 client_id = "CLIENT_ID"
@@ -14,10 +11,6 @@ scopes = [
   "playlist-read-collaborative",
   "playlist-modify-public",
   "playlist-modify-private",
-  "streaming",
-  "ugc-image-upload",
-  "user-follow-modify",
-  "user-follow-read",
   "user-library-read",
   "user-library-modify",
   "user-read-private",

@@ -68,3 +68,11 @@ impl From<ParseError> for CoolioError {
         }
     }
 }
+
+impl From<csv::Error> for CoolioError {
+    fn from(e: csv::Error) -> Self {
+        CoolioError {
+            msg: format!("Persisting to file error: {}", e),
+        }
+    }
+}

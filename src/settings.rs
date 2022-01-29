@@ -18,10 +18,16 @@ pub struct Database {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct LocalStorage {
+    pub path: String,
+}
+
+#[derive(Debug, Deserialize)]
 #[serde(tag = "adapter")]
 pub enum Storage {
     #[serde(rename = "psql")]
     Psql(Database),
+    Fs(LocalStorage),
 }
 
 #[derive(Debug, Deserialize)]

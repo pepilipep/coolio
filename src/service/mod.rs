@@ -7,31 +7,31 @@ use self::{history::History, playlists::Playlists};
 pub mod history;
 pub mod playlists;
 
-pub struct Service<S: Storage> {
+pub struct Service {
     spotify: AuthCodeSpotify,
-    storage: S,
+    storage: Box<dyn Storage + Send + Sync>,
 }
 
-impl<S: Storage> Service<S> {
-    pub fn new(spotify: AuthCodeSpotify, storage: S) -> Self {
+impl Service {
+    pub fn new(spotify: AuthCodeSpotify, storage: Box<dyn Storage + Send + Sync>) -> Self {
         Service { spotify, storage }
     }
 }
 
-impl<S: Storage + Send + Sync> History<S> for Service<S> {
+impl History for Service {
     fn get_spotify(&self) -> &AuthCodeSpotify {
         return &self.spotify;
     }
-    fn get_storage(&self) -> &S {
+    fn get_storage(&self) -> &Box<dyn Storage + Send + Sync> {
         return &self.storage;
     }
 }
 
-impl<S: Storage + Send + Sync> Playlists<S> for Service<S> {
+impl Playlists for Service {
     fn get_spotify(&self) -> &AuthCodeSpotify {
         return &self.spotify;
     }
-    fn get_storage(&self) -> &S {
+    fn get_storage(&self) -> &Box<dyn Storage + Send + Sync> {
         return &self.storage;
     }
 }

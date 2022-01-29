@@ -1,3 +1,4 @@
+pub mod fs;
 pub mod psql;
 
 use async_trait::async_trait;

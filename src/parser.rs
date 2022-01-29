@@ -62,10 +62,7 @@ impl Parser {
         Parser { matches }
     }
 
-    pub async fn parse<S: Storage + Sync + Send>(
-        &self,
-        service: Service<S>,
-    ) -> Result<(), CoolioError> {
+    pub async fn parse(&self, service: Service) -> Result<(), CoolioError> {
         match self.matches.subcommand() {
             Some(("history", history_matches)) => match history_matches.subcommand() {
                 Some(("update", _update_matches)) => service.history_update().await,

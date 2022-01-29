@@ -24,9 +24,9 @@ use crate::models::Playlist;
 use crate::storage::Storage;
 
 #[async_trait]
-pub trait Playlists<S: Storage + Send + Sync> {
+pub trait Playlists {
     fn get_spotify(&self) -> &AuthCodeSpotify;
-    fn get_storage(&self) -> &S;
+    fn get_storage(&self) -> &Box<dyn Storage + Send + Sync>;
 
     async fn list_playlists(&self) -> Result<(), CoolioError> {
         let spotify = self.get_spotify();

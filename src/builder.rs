@@ -4,6 +4,7 @@ use rspotify::{prelude::*, AuthCodeSpotify, Config, Credentials, OAuth};
 
 use crate::error::CoolioError;
 use crate::settings::{Spotify, Storage as StorageConf};
+use crate::storage::fs::Fs;
 use crate::storage::psql::Psql;
 use crate::storage::Storage;
 
@@ -30,8 +31,9 @@ pub async fn new_spotify(conf: Spotify) -> AuthCodeSpotify {
     spotify
 }
 
-pub async fn new_storage(conf: StorageConf) -> Result<impl Storage, CoolioError> {
+pub async fn new_storage(conf: StorageConf) -> Result<Box<dyn Storage + Send + Sync>, CoolioError> {
     match conf {
-        StorageConf::Psql(db) => Psql::new(db).await,
+        StorageConf::Psql(db) => Ok(Box::new(Psql::new(db).await?)),
+        StorageConf::Fs(ls) => Ok(Box::new(Fs::new(ls).await?)),
     }
 }

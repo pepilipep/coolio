@@ -50,3 +50,35 @@ impl FromStr for ThrowbackPeriod {
         }
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::ThrowbackPeriod;
+
+    #[test]
+    fn test_correct_throwback_period() {
+        let x: ThrowbackPeriod = "2m".parse().unwrap();
+        matches!(x, ThrowbackPeriod::Months(2));
+
+        let x = "10d".parse().unwrap();
+        matches!(x, ThrowbackPeriod::Days(10));
+
+        let x = "50w".parse().unwrap();
+        matches!(x, ThrowbackPeriod::Weeks(5));
+
+        let x = "1y".parse().unwrap();
+        matches!(x, ThrowbackPeriod::Years(1));
+    }
+
+    #[test]
+    fn test_incorrect_throwback_period() {
+        "0m".parse::<ThrowbackPeriod>().unwrap_err();
+        "-1w".parse::<ThrowbackPeriod>().unwrap_err();
+        "2r".parse::<ThrowbackPeriod>().unwrap_err();
+        "2к".parse::<ThrowbackPeriod>().unwrap_err();
+        "2y2".parse::<ThrowbackPeriod>().unwrap_err();
+        "y2".parse::<ThrowbackPeriod>().unwrap_err();
+        "m".parse::<ThrowbackPeriod>().unwrap_err();
+        "1000m".parse::<ThrowbackPeriod>().unwrap_err();
+    }
+}

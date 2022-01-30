@@ -14,7 +14,7 @@ use rspotify::AuthCodeSpotify;
 #[async_trait]
 pub trait History {
     fn get_spotify(&self) -> &AuthCodeSpotify;
-    fn get_storage(&self) -> &Box<dyn Storage + Send + Sync>;
+    fn get_storage(&self) -> &Box<dyn Storage>;
 
     async fn history_update(&self) -> Result<(), CoolioError> {
         let spotify = self.get_spotify();

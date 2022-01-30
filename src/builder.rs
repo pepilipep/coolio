@@ -31,7 +31,7 @@ pub async fn new_spotify(conf: Spotify) -> AuthCodeSpotify {
     spotify
 }
 
-pub async fn new_storage(conf: StorageConf) -> Result<Box<dyn Storage + Send + Sync>, CoolioError> {
+pub async fn new_storage(conf: StorageConf) -> Result<Box<dyn Storage>, CoolioError> {
     match conf {
         StorageConf::Psql(db) => Ok(Box::new(Psql::new(db).await?)),
         StorageConf::Fs(ls) => Ok(Box::new(Fs::new(ls).await?)),

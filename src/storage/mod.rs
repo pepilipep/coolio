@@ -8,7 +8,7 @@ use crate::error::CoolioError;
 use crate::models::{Listen, Playlist};
 
 #[async_trait]
-pub trait Storage {
+pub trait Storage: Send + Sync {
     async fn add_history(&self, listen: Listen) -> Result<(), CoolioError>;
 
     async fn get_history(&self) -> Result<Vec<Listen>, CoolioError>;

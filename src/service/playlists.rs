@@ -8,6 +8,7 @@ use chrono::NaiveDateTime;
 use chrono::Utc;
 
 use rspotify::model::AlbumId;
+use rspotify::model::AlbumType;
 use rspotify::model::ArtistId;
 use rspotify::model::FullArtist;
 use rspotify::model::Market;
@@ -271,10 +272,11 @@ pub trait Playlists {
         }
     }
 
-    async fn artits_new_albums(
+    async fn artists_new_albums_filter(
         &self,
         artist_id: &String,
         last_added: &DateTime<Utc>,
+        album_type: &AlbumType,
     ) -> Result<Vec<String>, CoolioError> {
         let spotify = self.get_spotify();
         let limit = 50;
@@ -285,7 +287,7 @@ pub trait Playlists {
             let fetched = spotify
                 .artist_albums_manual(
                     &ArtistId::from_uri(artist_id)?,
-                    None,
+                    Some(album_type),
                     None,
                     Some(limit),
                     Some(offset),
@@ -317,6 +319,26 @@ pub trait Playlists {
         }
 
         Ok(album_ids)
+    }
+
+    async fn artists_new_albums(
+        &self,
+        artist_id: &String,
+        last_added: &DateTime<Utc>,
+    ) -> Result<Vec<String>, CoolioError> {
+        let mut all = Vec::<String>::new();
+        for t in &[AlbumType::Album, AlbumType::AppearsOn, AlbumType::Single] {
+            let f = self
+                .artists_new_albums_filter(artist_id, last_added, &t)
+                .await?;
+
+            for t in f {
+                if !all.contains(&t) {
+                    all.push(t);
+                }
+            }
+        }
+        Ok(all)
     }
 
     async fn albums_to_tracks(&self, albums: Vec<String>) -> Result<Vec<TrackId>, CoolioError> {
@@ -359,7 +381,7 @@ pub trait Playlists {
     ) -> Result<(), CoolioError> {
         let spotify = self.get_spotify();
 
-        let album_ids = self.artits_new_albums(artist_id, last_added).await?;
+        let album_ids = self.artists_new_albums(artist_id, last_added).await?;
 
         let tracks = self.albums_to_tracks(album_ids).await?;
 

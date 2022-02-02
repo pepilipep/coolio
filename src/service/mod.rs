@@ -6,6 +6,7 @@ use self::{history::History, playlists::Playlists};
 
 pub mod history;
 pub mod playlists;
+pub mod spotify;
 
 pub struct Service {
     spotify: AuthCodeSpotify,

@@ -1,5 +1,4 @@
-use crate::service::history::History;
-use crate::service::playlists::Playlists;
+use crate::service::spotify::Spotify;
 use crate::service::Service;
 use crate::{error::CoolioError, models::ThrowbackPeriod};
 use clap::{app_from_crate, arg, App, AppSettings, ArgMatches};
@@ -75,12 +74,13 @@ impl Parser {
         Parser { matches }
     }
 
-    pub async fn parse(&self, service: Service) -> Result<(), CoolioError> {
+    pub async fn parse<S: Spotify>(&self, service: Service<S>) -> Result<(), CoolioError> {
         match self.matches.subcommand() {
             Some(("history", history_matches)) => match history_matches.subcommand() {
-                Some(("update", _update_matches)) => service.history_update().await,
+                Some(("update", _update_matches)) => service.history.update().await,
                 Some(("throwback", throwback_matches)) => {
                     service
+                        .history
                         .throwback(
                             throwback_matches.value_of("name"),
                             throwback_matches.value_of_t("period").ok(),
@@ -91,14 +91,16 @@ impl Parser {
                 _ => unreachable!(),
             },
             Some(("playlists", playlists_matches)) => match playlists_matches.subcommand() {
-                Some(("list", _list_matches)) => service.list_playlists().await,
+                Some(("list", _list_matches)) => service.playlists.list().await,
                 Some(("create", create_matches)) => {
                     service
-                        .create_playlist(create_matches.value_of("PLAYLIST").unwrap())
+                        .playlists
+                        .create(create_matches.value_of("PLAYLIST").unwrap())
                         .await
                 }
                 Some(("link", link_matches)) => {
                     service
+                        .playlists
                         .link_playlist_to_artist(
                             link_matches.value_of("PLAYLIST").unwrap(),
                             link_matches.value_of("ARTIST").unwrap(),
@@ -108,21 +110,24 @@ impl Parser {
                 }
                 Some(("unlink", unlink_matches)) => {
                     service
+                        .playlists
                         .unlink_artist_from_playlist(
                             unlink_matches.value_of("PLAYLIST").unwrap(),
                             unlink_matches.value_of("ARTIST").unwrap(),
                         )
                         .await
                 }
-                Some(("update", _update_matches)) => service.playlists_update().await,
+                Some(("update", _update_matches)) => service.playlists.update().await,
                 Some(("automate", automate_matches)) => {
                     service
-                        .automate_playlist(automate_matches.value_of("PLAYLIST").unwrap())
+                        .playlists
+                        .automate(automate_matches.value_of("PLAYLIST").unwrap())
                         .await
                 }
                 Some(("show", show_matches)) => {
                     service
-                        .show_playlist(show_matches.value_of("PLAYLIST").unwrap())
+                        .playlists
+                        .show(show_matches.value_of("PLAYLIST").unwrap())
                         .await
                 }
                 _ => unreachable!(),

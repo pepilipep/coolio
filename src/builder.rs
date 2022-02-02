@@ -1,14 +1,16 @@
 use std::collections::HashSet;
+use std::rc::Rc;
 
 use rspotify::{prelude::*, AuthCodeSpotify, Config, Credentials, OAuth};
 
 use crate::error::CoolioError;
+use crate::service::spotify::HTTPSpotify;
 use crate::settings::{Spotify, Storage as StorageConf};
 use crate::storage::fs::Fs;
 use crate::storage::psql::Psql;
 use crate::storage::Storage;
 
-pub async fn new_spotify(conf: Spotify) -> AuthCodeSpotify {
+pub async fn new_spotify(conf: Spotify) -> HTTPSpotify {
     let creds = Credentials::new(&conf.client_id, &conf.client_secret);
 
     let oauth = OAuth {
@@ -28,12 +30,12 @@ pub async fn new_spotify(conf: Spotify) -> AuthCodeSpotify {
     let url = spotify.get_authorize_url(false).unwrap();
     spotify.prompt_for_token(&url).await.unwrap();
 
-    spotify
+    HTTPSpotify::new(spotify)
 }
 
-pub async fn new_storage(conf: StorageConf) -> Result<Box<dyn Storage>, CoolioError> {
+pub async fn new_storage(conf: StorageConf) -> Result<Rc<dyn Storage>, CoolioError> {
     match conf {
-        StorageConf::Psql(db) => Ok(Box::new(Psql::new(db).await?)),
-        StorageConf::Fs(ls) => Ok(Box::new(Fs::new(ls).await?)),
+        StorageConf::Psql(db) => Ok(Rc::new(Psql::new(db).await?)),
+        StorageConf::Fs(ls) => Ok(Rc::new(Fs::new(ls).await?)),
     }
 }

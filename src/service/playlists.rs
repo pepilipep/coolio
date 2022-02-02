@@ -1,65 +1,37 @@
 use std::cmp::min;
 use std::collections::HashMap;
-
-use async_trait::async_trait;
+use std::rc::Rc;
 
 use chrono::DateTime;
 use chrono::NaiveDateTime;
 use chrono::Utc;
 
-use rspotify::model::AlbumId;
 use rspotify::model::AlbumType;
-use rspotify::model::ArtistId;
 use rspotify::model::FullArtist;
-use rspotify::model::Market;
 use rspotify::model::PlayableItem;
 use rspotify::model::PlaylistId;
-use rspotify::model::SearchResult;
-use rspotify::model::SearchType;
 use rspotify::model::TrackId;
 use rspotify::prelude::*;
-use rspotify::AuthCodeSpotify;
 
 use crate::error::CoolioError;
 use crate::models::Playlist;
 use crate::storage::Storage;
 
-#[async_trait]
-pub trait Playlists {
-    fn get_spotify(&self) -> &AuthCodeSpotify;
-    fn get_storage(&self) -> &Box<dyn Storage>;
+use super::spotify::Spotify;
 
-    async fn list_playlists(&self) -> Result<(), CoolioError> {
-        let spotify = self.get_spotify();
-        let storage = self.get_storage();
+pub struct PlaylistService<S: Spotify> {
+    spotify: Rc<S>,
+    storage: Rc<dyn Storage>,
+}
 
-        let limit = 50;
-        let mut offset = 0;
+impl<S: Spotify> PlaylistService<S> {
+    pub fn new(spotify: Rc<S>, storage: Rc<dyn Storage>) -> Self {
+        PlaylistService { spotify, storage }
+    }
 
-        let mut playlists = Vec::<Playlist>::new();
-
-        loop {
-            let fetched = spotify
-                .current_user_playlists_manual(Some(limit), Some(offset))
-                .await?;
-
-            for playlist in fetched.items {
-                playlists.push(Playlist {
-                    id: playlist.id.uri(),
-                    name: playlist.name,
-                    artists: Vec::<String>::new(),
-                    automated: false,
-                })
-            }
-
-            if fetched.next.is_none() {
-                break;
-            }
-
-            offset += limit;
-        }
-
-        let mut stored_playlists = storage.get_playlists().await?;
+    pub async fn list(&self) -> Result<(), CoolioError> {
+        let mut playlists = self.spotify.current_user_playlists().await?;
+        let mut stored_playlists = self.storage.get_playlists().await?;
 
         stored_playlists.append(&mut playlists);
         stored_playlists.dedup_by_key(|p| p.id.clone());
@@ -79,18 +51,13 @@ pub trait Playlists {
         Ok(())
     }
 
-    async fn show_playlist(&self, name: &str) -> Result<(), CoolioError> {
-        let storage = self.get_storage();
-        let spotify = self.get_spotify();
-
-        let playlist = storage.get_playlist(name).await?;
-        let external_playlist = spotify
-            .playlist(&PlaylistId::from_uri(&playlist.id)?, None, None)
-            .await?;
+    pub async fn show(&self, name: &str) -> Result<(), CoolioError> {
+        let playlist = self.storage.get_playlist(name).await?;
+        let external_playlist = self.spotify.playlist(&playlist.id).await?;
 
         println!("Artists:");
         for art_id in playlist.artists {
-            let artist = spotify.artist(&ArtistId::from_uri(&art_id)?).await?;
+            let artist = self.spotify.artist(&art_id).await?;
             println!(
                 "\t{} (popularity: {}, followers: {})",
                 artist.name, artist.popularity, artist.followers.total
@@ -106,169 +73,116 @@ pub trait Playlists {
         Ok(())
     }
 
-    async fn create_playlist(&self, name: &str) -> Result<(), CoolioError> {
-        let spotify = self.get_spotify();
-        let storage = self.get_storage();
-        let me = spotify.current_user().await?;
-        let playlist = spotify
-            .user_playlist_create(&me.id, name, Some(false), None, None)
-            .await?;
-        storage
+    pub async fn create(&self, name: &str) -> Result<(), CoolioError> {
+        let playlist = self.spotify.create_playlist(name).await?;
+        self.storage
             .create_playlist(&playlist.id.uri(), &playlist.name)
             .await?;
 
         Ok(())
     }
 
-    async fn automate_playlist(&self, name: &str) -> Result<(), CoolioError> {
-        let spotify = self.get_spotify();
-        let storage = self.get_storage();
-
-        let mut offset = 0;
-        let limit = 50;
-        let mut playlist_id: Option<String> = None;
-        loop {
-            let fetched = spotify
-                .current_user_playlists_manual(Some(limit), Some(offset))
-                .await?;
-
-            for item in fetched.items {
-                if item.name == name {
-                    playlist_id = Some(item.id.uri());
-                    break;
-                }
+    pub async fn automate(&self, name: &str) -> Result<(), CoolioError> {
+        let playlists = self.spotify.current_user_playlists().await?;
+        for p in playlists {
+            if p.name == name {
+                return self.storage.create_playlist(&p.id, name).await;
             }
-
-            if fetched.next.is_none() {
-                break;
-            }
-            offset += limit;
         }
-
-        match playlist_id {
-            None => Err("The playlist doesn't exist".into()),
-            Some(id) => storage.create_playlist(&id, &name).await,
-        }
+        Err("The playlist doesn't exist".into())
     }
 
-    async fn seed_artist_popular_into_playlist(
+    async fn seed_artist_popular(
         &self,
         artist_id: &String,
         playlist_id: &String,
         seed: usize,
     ) -> Result<(), CoolioError> {
-        let spotify = self.get_spotify();
-
-        let tracks = spotify
-            .artist_top_tracks(&ArtistId::from_uri(artist_id)?, &Market::FromToken)
-            .await?;
-
+        let tracks = self.spotify.artist_top_tracks(artist_id).await?;
         let seed = min(seed, tracks.len());
-
-        let seed_track_ids = tracks[..seed]
-            .iter()
-            .map(|x| x.id.as_ref().unwrap() as &dyn PlayableId)
-            .collect::<Vec<&dyn PlayableId>>();
-
-        spotify
-            .playlist_add_items(&PlaylistId::from_uri(playlist_id)?, seed_track_ids, Some(0))
+        self.spotify
+            .playlist_add_items(
+                &PlaylistId::from_uri(playlist_id)?,
+                tracks[..seed].iter().map(|x| x.id.as_ref().unwrap().uri()),
+            )
             .await?;
 
         Ok(())
     }
 
-    async fn link_playlist_to_artist(
+    pub async fn link_playlist_to_artist(
         &self,
         playlist: &str,
         artist: &str,
         seed: Option<usize>,
     ) -> Result<(), CoolioError> {
-        let spotify = self.get_spotify();
-        let storage = self.get_storage();
+        let playlist = self.storage.get_playlist(playlist).await?;
 
-        let playlist = storage.get_playlist(playlist).await?;
+        let artists = self.spotify.search_artists(artist).await?;
 
-        let potentials_artists = spotify
-            .search(artist, &SearchType::Artist, None, None, Some(5), None)
+        let mut count_id = 1;
+        println!("choose one of the following artists:");
+        for art in &artists {
+            println!(
+                "[{}] {} (followers: {})",
+                count_id, art.name, art.followers.total
+            );
+            count_id += 1;
+        }
+
+        let chosen: usize;
+        loop {
+            let mut input = String::new();
+            std::io::stdin().read_line(&mut input)?;
+
+            input = input.trim().to_string();
+
+            if let Ok(choice) = input.parse::<usize>() {
+                if choice >= 1 && choice < artists.len() {
+                    chosen = choice;
+                    break;
+                }
+            }
+            println!("Wrong choice. Try again")
+        }
+
+        let chosen_artist_id = &artists[chosen - 1].id;
+
+        self.storage
+            .link_artist(&playlist.id, &playlist.name, &chosen_artist_id.uri())
             .await?;
 
-        if let SearchResult::Artists(artists) = potentials_artists {
-            let mut count_id = 1;
-            println!("choose one of the following artists:");
-            for art in &artists.items {
-                println!(
-                    "[{}] {} (followers: {})",
-                    count_id, art.name, art.followers.total
-                );
-                count_id += 1;
-            }
-
-            let chosen: usize;
-            loop {
-                let mut input = String::new();
-                std::io::stdin().read_line(&mut input)?;
-
-                input = input.trim().to_string();
-
-                if let Ok(choice) = input.parse::<usize>() {
-                    if choice >= 1 && choice < artists.items.len() {
-                        chosen = choice;
-                        break;
-                    }
-                }
-                println!("Wrong choice. Try again")
-            }
-
-            let chosen_artist_id = &artists.items[chosen - 1].id;
-
-            storage
-                .link_artist(&playlist.id, &playlist.name, &chosen_artist_id.uri())
+        if let Some(seed) = seed {
+            self.seed_artist_popular(&chosen_artist_id.uri(), &playlist.id, seed)
                 .await?;
-
-            if let Some(seed) = seed {
-                self.seed_artist_popular_into_playlist(&chosen_artist_id.uri(), &playlist.id, seed)
-                    .await?;
-            }
-
-            Ok(())
-        } else {
-            unreachable!()
         }
+
+        Ok(())
     }
 
-    async fn unlink_artist_from_playlist(
+    pub async fn unlink_artist_from_playlist(
         &self,
         playlist: &str,
         artist: &str,
     ) -> Result<(), CoolioError> {
-        let spotify = self.get_spotify();
-        let storage = self.get_storage();
+        let playlist = self.storage.get_playlist(playlist).await?;
 
-        let playlist = storage.get_playlist(playlist).await?;
+        let potentials = self
+            .spotify
+            .search_artists(artist)
+            .await?
+            .into_iter()
+            .filter(|x| playlist.artists.contains(&x.id.uri()))
+            .collect::<Vec<FullArtist>>();
 
-        let potentials_artists = spotify
-            .search(artist, &SearchType::Artist, None, None, Some(5), None)
-            .await?;
-
-        if let SearchResult::Artists(artists) = potentials_artists {
-            let mut potential = Vec::<&FullArtist>::new();
-            for art in &artists.items {
-                if playlist.artists.contains(&art.id.uri()) {
-                    potential.push(art);
-                }
+        match potentials.len() {
+            0 => Err("no artists in the playlist matched your search".into()),
+            1 => {
+                self.storage
+                    .unlink_artist(&playlist.id, &potentials[0].id.uri())
+                    .await
             }
-
-            match potential.len() {
-                0 => Err("no artists in the playlist matched your search".into()),
-                1 => {
-                    storage
-                        .unlink_artist(&playlist.id, &potential[0].id.uri())
-                        .await
-                }
-                _ => Err("ambigious artists found, try again more concrete".into()),
-            }
-        } else {
-            unreachable!()
+            _ => Err("ambigious artists found, try again more concrete".into()),
         }
     }
 
@@ -278,44 +192,24 @@ pub trait Playlists {
         last_added: &DateTime<Utc>,
         album_type: &AlbumType,
     ) -> Result<Vec<String>, CoolioError> {
-        let spotify = self.get_spotify();
-        let limit = 50;
-        let mut offset = 0;
+        let albums = self.spotify.artist_albums(artist_id, album_type).await?;
         let mut album_ids = Vec::<String>::new();
 
-        loop {
-            let fetched = spotify
-                .artist_albums_manual(
-                    &ArtistId::from_uri(artist_id)?,
-                    Some(album_type),
-                    None,
-                    Some(limit),
-                    Some(offset),
-                )
-                .await?;
-
-            for album in fetched.items {
-                if let Some(release_date) = album.release_date {
-                    if let Some("day") = album.release_date_precision.as_ref().map(|x| x.as_str()) {
-                        if DateTime::<Utc>::from_utc(
-                            NaiveDateTime::parse_from_str(
-                                &(release_date + " 00:00:00"),
-                                "%Y-%m-%d %H:%M:%S",
-                            )?,
-                            Utc,
-                        ) > *last_added
-                        {
-                            album_ids.push(album.id.unwrap().uri());
-                        }
+        for album in albums {
+            if let Some(release_date) = album.release_date {
+                if let Some("day") = album.release_date_precision.as_ref().map(|x| x.as_str()) {
+                    if DateTime::<Utc>::from_utc(
+                        NaiveDateTime::parse_from_str(
+                            &(release_date + " 00:00:00"),
+                            "%Y-%m-%d %H:%M:%S",
+                        )?,
+                        Utc,
+                    ) > *last_added
+                    {
+                        album_ids.push(album.id.unwrap().uri());
                     }
                 }
             }
-
-            if fetched.next.is_none() {
-                break;
-            }
-
-            offset += limit;
         }
 
         Ok(album_ids)
@@ -327,7 +221,7 @@ pub trait Playlists {
         last_added: &DateTime<Utc>,
     ) -> Result<Vec<String>, CoolioError> {
         let mut all = Vec::<String>::new();
-        for t in &[AlbumType::Album, AlbumType::AppearsOn, AlbumType::Single] {
+        for t in &[AlbumType::Album, AlbumType::Single] {
             let f = self
                 .artists_new_albums_filter(artist_id, last_added, &t)
                 .await?;
@@ -342,31 +236,12 @@ pub trait Playlists {
     }
 
     async fn albums_to_tracks(&self, albums: Vec<String>) -> Result<Vec<TrackId>, CoolioError> {
-        let spotify = self.get_spotify();
         let mut tracks_to_add = Vec::<TrackId>::new();
 
         for album_id_to_add in albums {
-            let mut offset = 0;
-            let limit = 50;
-
-            loop {
-                let fetched = spotify
-                    .album_track_manual(
-                        &AlbumId::from_uri(&album_id_to_add)?,
-                        Some(limit),
-                        Some(offset),
-                    )
-                    .await?;
-
-                for track in fetched.items {
-                    tracks_to_add.push(track.id.unwrap());
-                }
-
-                if fetched.next.is_none() {
-                    break;
-                }
-
-                offset += limit;
+            let tracks = self.spotify.album_tracks(&album_id_to_add).await?;
+            for track in tracks {
+                tracks_to_add.push(track.id.unwrap());
             }
         }
 
@@ -379,20 +254,13 @@ pub trait Playlists {
         playlist_id: &String,
         last_added: &DateTime<Utc>,
     ) -> Result<(), CoolioError> {
-        let spotify = self.get_spotify();
-
         let album_ids = self.artists_new_albums(artist_id, last_added).await?;
-
         let tracks = self.albums_to_tracks(album_ids).await?;
-
         if tracks.len() > 0 {
-            let tracks_as_playable_ids = tracks.iter().map(|x| x as &dyn PlayableId);
-
-            spotify
+            self.spotify
                 .playlist_add_items(
                     &PlaylistId::from_uri(playlist_id)?,
-                    tracks_as_playable_ids,
-                    Some(0),
+                    tracks.into_iter().map(|x| x.uri()),
                 )
                 .await?;
         }
@@ -404,10 +272,7 @@ pub trait Playlists {
         &self,
         playlist: &Playlist,
     ) -> Result<HashMap<String, DateTime<Utc>>, CoolioError> {
-        let spotify = self.get_spotify();
-        let external_playlist = spotify
-            .playlist(&PlaylistId::from_uri(&playlist.id)?, None, None)
-            .await?;
+        let external_playlist = self.spotify.playlist(&playlist.id).await?;
 
         let mut last_song_for_artist = HashMap::<String, DateTime<Utc>>::new();
         for track in external_playlist.tracks.items {
@@ -434,10 +299,7 @@ pub trait Playlists {
 
         for artist_id in &playlist.artists {
             match last_song_for_artist.get(artist_id) {
-                None => {
-                    self.seed_artist_popular_into_playlist(artist_id, &playlist.id, 5)
-                        .await?
-                }
+                None => self.seed_artist_popular(artist_id, &playlist.id, 5).await?,
                 Some(last_added) => {
                     self.artist_add_last(artist_id, &playlist.id, last_added)
                         .await?
@@ -448,15 +310,11 @@ pub trait Playlists {
         Ok(())
     }
 
-    async fn playlists_update(&self) -> Result<(), CoolioError> {
-        let storage = self.get_storage();
-
-        let playlists = storage.get_playlists().await?;
-
+    pub async fn update(&self) -> Result<(), CoolioError> {
+        let playlists = self.storage.get_playlists().await?;
         for playlist in playlists {
             self.playlist_update(&playlist).await?
         }
-
         Ok(())
     }
 }

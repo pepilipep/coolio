@@ -5,13 +5,10 @@ use rspotify::model::{
     SearchResult, SearchType, SimplifiedAlbum, SimplifiedTrack, TrackId,
 };
 use rspotify::prelude::*;
-use rspotify::{
-    model::{PlayHistory, TimeLimits},
-    AuthCodeSpotify,
-};
+use rspotify::{model::TimeLimits, AuthCodeSpotify};
 
 use crate::error::CoolioError;
-use crate::models::Playlist;
+use crate::models::{Listen, Playlist};
 
 #[async_trait]
 pub trait Spotify {
@@ -19,13 +16,13 @@ pub trait Spotify {
         &self,
         limit: u32,
         time_limit: Option<DateTime<Utc>>,
-    ) -> Result<Vec<PlayHistory>, CoolioError>;
+    ) -> Result<Vec<Listen>, CoolioError>;
 
-    async fn create_playlist(&self, name: &str) -> Result<FullPlaylist, CoolioError>;
+    async fn create_playlist(&self, name: &str) -> Result<Playlist, CoolioError>;
 
     async fn playlist_add_items<'a>(
         &self,
-        playlist_id: &PlaylistId,
+        playlist_id: &str,
         items: impl IntoIterator<Item = String> + Send + 'a,
     ) -> Result<(), CoolioError>;
 
@@ -58,28 +55,39 @@ impl Spotify for HTTPSpotify {
         &self,
         limit: u32,
         time_limit: Option<DateTime<Utc>>,
-    ) -> Result<Vec<PlayHistory>, CoolioError> {
+    ) -> Result<Vec<Listen>, CoolioError> {
         let last_listen = time_limit.map(|x| TimeLimits::After(x));
 
         Ok(self
             .spotify
             .current_user_recently_played(Some(limit), last_listen)
             .await?
-            .items)
+            .items
+            .into_iter()
+            .map(|x| Listen {
+                song_id: x.track.id.unwrap().uri(),
+                time: x.played_at,
+            })
+            .collect::<Vec<Listen>>())
     }
 
-    async fn create_playlist(&self, name: &str) -> Result<FullPlaylist, CoolioError> {
+    async fn create_playlist(&self, name: &str) -> Result<Playlist, CoolioError> {
         let me = self.spotify.current_user().await?;
         let playlist = self
             .spotify
             .user_playlist_create(&me.id, name, None, None, None)
             .await?;
-        Ok(playlist)
+        Ok(Playlist {
+            id: playlist.id.uri(),
+            name: playlist.name,
+            automated: false,
+            artists: vec![],
+        })
     }
 
     async fn playlist_add_items<'a>(
         &self,
-        playlist_id: &PlaylistId,
+        playlist_id: &str,
         items: impl IntoIterator<Item = String> + Send + 'a,
     ) -> Result<(), CoolioError> {
         let please_live = items
@@ -93,7 +101,7 @@ impl Spotify for HTTPSpotify {
             .collect::<Vec<&dyn PlayableId>>();
 
         self.spotify
-            .playlist_add_items(playlist_id, to_add, Some(0))
+            .playlist_add_items(&PlaylistId::from_uri(playlist_id)?, to_add, Some(0))
             .await?;
         Ok(())
     }

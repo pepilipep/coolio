@@ -4,13 +4,13 @@ use chrono::{DateTime, Utc};
 
 use crate::error::CoolioError;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Listen {
     pub song_id: String,
     pub time: DateTime<Utc>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Playlist {
     pub id: String,
     pub name: String,

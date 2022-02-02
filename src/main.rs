@@ -6,6 +6,8 @@ mod service;
 mod settings;
 mod storage;
 
+use std::env;
+
 use error::CoolioError;
 use parser::Parser;
 
@@ -14,7 +16,7 @@ use service::Service;
 use settings::Settings;
 
 async fn execute() -> Result<(), CoolioError> {
-    let parser = Parser::new();
+    let parser = Parser::new(env::args_os());
     let settings = Settings::new()?;
     let spotify = new_spotify(settings.spotify).await;
     let storage = new_storage(settings.storage).await?;
@@ -31,3 +33,6 @@ async fn main() {
         println!("{}", e)
     }
 }
+
+#[cfg(test)]
+mod tests;

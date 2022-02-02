@@ -5,8 +5,7 @@ use std::rc::Rc;
 use chrono::{Duration, Utc};
 
 use crate::models::ThrowbackPeriod;
-use crate::{error::CoolioError, models::Listen, storage::Storage};
-use rspotify::prelude::*;
+use crate::{error::CoolioError, storage::Storage};
 
 use super::spotify::Spotify;
 
@@ -28,13 +27,8 @@ impl<S: Spotify> HistoryService<S> {
             .current_user_recently_played(50, last_listen)
             .await?;
 
-        for song in recent {
-            self.storage
-                .add_history(Listen {
-                    song_id: song.track.id.unwrap().uri(),
-                    time: song.played_at,
-                })
-                .await?;
+        for l in recent {
+            self.storage.add_history(l).await?;
         }
         Ok(())
     }

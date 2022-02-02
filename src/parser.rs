@@ -1,3 +1,5 @@
+use std::ffi::OsString;
+
 use crate::service::spotify::Spotify;
 use crate::service::Service;
 use crate::{error::CoolioError, models::ThrowbackPeriod};
@@ -8,7 +10,7 @@ pub struct Parser {
 }
 
 impl Parser {
-    pub fn new() -> Self {
+    pub fn new<T: Into<OsString> + Clone, I: IntoIterator<Item = T>>(args: I) -> Self {
         let matches = app_from_crate!()
             .setting(AppSettings::SubcommandRequiredElseHelp)
             .subcommand(
@@ -70,7 +72,7 @@ impl Parser {
                             .arg(arg!(<PLAYLIST> "name of the playlist")),
                     ),
             )
-            .get_matches();
+            .get_matches_from(args);
         Parser { matches }
     }
 

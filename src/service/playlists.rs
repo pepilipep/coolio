@@ -9,7 +9,6 @@ use chrono::Utc;
 use rspotify::model::AlbumType;
 use rspotify::model::FullArtist;
 use rspotify::model::PlayableItem;
-use rspotify::model::PlaylistId;
 use rspotify::model::TrackId;
 use rspotify::prelude::*;
 
@@ -76,7 +75,7 @@ impl<S: Spotify> PlaylistService<S> {
     pub async fn create(&self, name: &str) -> Result<(), CoolioError> {
         let playlist = self.spotify.create_playlist(name).await?;
         self.storage
-            .create_playlist(&playlist.id.uri(), &playlist.name)
+            .create_playlist(&playlist.id, &playlist.name)
             .await?;
 
         Ok(())
@@ -102,7 +101,7 @@ impl<S: Spotify> PlaylistService<S> {
         let seed = min(seed, tracks.len());
         self.spotify
             .playlist_add_items(
-                &PlaylistId::from_uri(playlist_id)?,
+                playlist_id,
                 tracks[..seed].iter().map(|x| x.id.as_ref().unwrap().uri()),
             )
             .await?;
@@ -258,10 +257,7 @@ impl<S: Spotify> PlaylistService<S> {
         let tracks = self.albums_to_tracks(album_ids).await?;
         if tracks.len() > 0 {
             self.spotify
-                .playlist_add_items(
-                    &PlaylistId::from_uri(playlist_id)?,
-                    tracks.into_iter().map(|x| x.uri()),
-                )
+                .playlist_add_items(playlist_id, tracks.into_iter().map(|x| x.uri()))
                 .await?;
         }
 

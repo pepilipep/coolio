@@ -3,19 +3,18 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use chrono::DateTime;
-use chrono::NaiveDateTime;
 use chrono::Utc;
 
 use rspotify::model::AlbumType;
 use rspotify::model::FullArtist;
 use rspotify::model::PlayableItem;
-use rspotify::model::TrackId;
 use rspotify::prelude::*;
 
 use crate::error::CoolioError;
 use crate::models::Playlist;
 use crate::storage::Storage;
 
+use super::spotify::SimpleTrack;
 use super::spotify::Spotify;
 
 pub struct PlaylistService<S: Spotify> {
@@ -100,10 +99,7 @@ impl<S: Spotify> PlaylistService<S> {
         let tracks = self.spotify.artist_top_tracks(artist_id).await?;
         let seed = min(seed, tracks.len());
         self.spotify
-            .playlist_add_items(
-                playlist_id,
-                tracks[..seed].iter().map(|x| x.id.as_ref().unwrap().uri()),
-            )
+            .playlist_add_items(playlist_id, tracks[..seed].iter().map(|x| x.id.clone()))
             .await?;
 
         Ok(())
@@ -195,19 +191,8 @@ impl<S: Spotify> PlaylistService<S> {
         let mut album_ids = Vec::<String>::new();
 
         for album in albums {
-            if let Some(release_date) = album.release_date {
-                if let Some("day") = album.release_date_precision.as_ref().map(|x| x.as_str()) {
-                    if DateTime::<Utc>::from_utc(
-                        NaiveDateTime::parse_from_str(
-                            &(release_date + " 00:00:00"),
-                            "%Y-%m-%d %H:%M:%S",
-                        )?,
-                        Utc,
-                    ) > *last_added
-                    {
-                        album_ids.push(album.id.unwrap().uri());
-                    }
-                }
+            if album.release_date > *last_added {
+                album_ids.push(album.id);
             }
         }
 
@@ -234,14 +219,12 @@ impl<S: Spotify> PlaylistService<S> {
         Ok(all)
     }
 
-    async fn albums_to_tracks(&self, albums: Vec<String>) -> Result<Vec<TrackId>, CoolioError> {
-        let mut tracks_to_add = Vec::<TrackId>::new();
+    async fn albums_to_tracks(&self, albums: Vec<String>) -> Result<Vec<SimpleTrack>, CoolioError> {
+        let mut tracks_to_add = Vec::<SimpleTrack>::new();
 
         for album_id_to_add in albums {
-            let tracks = self.spotify.album_tracks(&album_id_to_add).await?;
-            for track in tracks {
-                tracks_to_add.push(track.id.unwrap());
-            }
+            let mut tracks = self.spotify.album_tracks(&album_id_to_add).await?;
+            tracks_to_add.append(&mut tracks);
         }
 
         Ok(tracks_to_add)
@@ -257,7 +240,7 @@ impl<S: Spotify> PlaylistService<S> {
         let tracks = self.albums_to_tracks(album_ids).await?;
         if tracks.len() > 0 {
             self.spotify
-                .playlist_add_items(playlist_id, tracks.into_iter().map(|x| x.uri()))
+                .playlist_add_items(playlist_id, tracks.into_iter().map(|x| x.id))
                 .await?;
         }
 

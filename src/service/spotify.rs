@@ -1,14 +1,23 @@
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDateTime, Utc};
 use rspotify::model::{
-    AlbumId, AlbumType, ArtistId, FullArtist, FullPlaylist, FullTrack, Market, PlaylistId,
-    SearchResult, SearchType, SimplifiedAlbum, SimplifiedTrack, TrackId,
+    AlbumId, AlbumType, ArtistId, FullArtist, FullPlaylist, Market, PlaylistId, SearchResult,
+    SearchType, TrackId,
 };
 use rspotify::prelude::*;
 use rspotify::{model::TimeLimits, AuthCodeSpotify};
 
 use crate::error::CoolioError;
 use crate::models::{Listen, Playlist};
+
+pub struct SimpleTrack {
+    pub id: String,
+}
+
+pub struct SimpleAlbum {
+    pub id: String,
+    pub release_date: DateTime<Utc>,
+}
 
 #[async_trait]
 pub trait Spotify {
@@ -25,18 +34,18 @@ pub trait Spotify {
         playlist_id: &str,
         items: impl IntoIterator<Item = String> + Send + 'a,
     ) -> Result<(), CoolioError>;
-
     async fn current_user_playlists(&self) -> Result<Vec<Playlist>, CoolioError>;
-    async fn playlist(&self, id: &str) -> Result<FullPlaylist, CoolioError>;
-    async fn artist(&self, id: &str) -> Result<FullArtist, CoolioError>;
-    async fn artist_top_tracks(&self, name: &str) -> Result<Vec<FullTrack>, CoolioError>;
-    async fn search_artists(&self, name: &str) -> Result<Vec<FullArtist>, CoolioError>;
+    async fn artist_top_tracks(&self, name: &str) -> Result<Vec<SimpleTrack>, CoolioError>;
+    async fn album_tracks(&self, id: &str) -> Result<Vec<SimpleTrack>, CoolioError>;
     async fn artist_albums(
         &self,
         id: &str,
         album_type: &AlbumType,
-    ) -> Result<Vec<SimplifiedAlbum>, CoolioError>;
-    async fn album_tracks(&self, id: &str) -> Result<Vec<SimplifiedTrack>, CoolioError>;
+    ) -> Result<Vec<SimpleAlbum>, CoolioError>;
+
+    async fn playlist(&self, id: &str) -> Result<FullPlaylist, CoolioError>;
+    async fn artist(&self, id: &str) -> Result<FullArtist, CoolioError>;
+    async fn search_artists(&self, name: &str) -> Result<Vec<FullArtist>, CoolioError>;
 }
 
 pub struct HTTPSpotify {
@@ -150,12 +159,16 @@ impl Spotify for HTTPSpotify {
         Ok(p)
     }
 
-    async fn artist_top_tracks(&self, id: &str) -> Result<Vec<FullTrack>, CoolioError> {
-        let tracks = self
+    async fn artist_top_tracks(&self, id: &str) -> Result<Vec<SimpleTrack>, CoolioError> {
+        Ok(self
             .spotify
             .artist_top_tracks(&ArtistId::from_uri(id)?, &Market::FromToken)
-            .await?;
-        Ok(tracks)
+            .await?
+            .into_iter()
+            .map(|x| SimpleTrack {
+                id: x.id.unwrap().uri(),
+            })
+            .collect::<Vec<SimpleTrack>>())
     }
 
     async fn search_artists(&self, name: &str) -> Result<Vec<FullArtist>, CoolioError> {
@@ -174,13 +187,13 @@ impl Spotify for HTTPSpotify {
         &self,
         id: &str,
         album_type: &AlbumType,
-    ) -> Result<Vec<SimplifiedAlbum>, CoolioError> {
+    ) -> Result<Vec<SimpleAlbum>, CoolioError> {
         let limit = 50;
         let mut offset = 0;
-        let mut albums = Vec::<SimplifiedAlbum>::new();
+        let mut albums = Vec::<SimpleAlbum>::new();
 
         loop {
-            let mut fetched = self
+            let fetched = self
                 .spotify
                 .artist_albums_manual(
                     &ArtistId::from_uri(id)?,
@@ -191,7 +204,22 @@ impl Spotify for HTTPSpotify {
                 )
                 .await?;
 
-            albums.append(&mut fetched.items);
+            for a in fetched.items {
+                if let Some(release_date) = a.release_date {
+                    if let Some("day") = a.release_date_precision.as_ref().map(|x| x.as_str()) {
+                        albums.push(SimpleAlbum {
+                            id: a.id.unwrap().uri(),
+                            release_date: DateTime::<Utc>::from_utc(
+                                NaiveDateTime::parse_from_str(
+                                    &(release_date + " 00:00:00"),
+                                    "%Y-%m-%d %H:%M:%S",
+                                )?,
+                                Utc,
+                            ),
+                        })
+                    }
+                }
+            }
 
             if fetched.next.is_none() {
                 break;
@@ -203,19 +231,23 @@ impl Spotify for HTTPSpotify {
         Ok(albums)
     }
 
-    async fn album_tracks(&self, id: &str) -> Result<Vec<SimplifiedTrack>, CoolioError> {
+    async fn album_tracks(&self, id: &str) -> Result<Vec<SimpleTrack>, CoolioError> {
         let mut offset = 0;
         let limit = 50;
 
-        let mut tracks = Vec::<SimplifiedTrack>::new();
+        let mut tracks = Vec::<SimpleTrack>::new();
 
         loop {
-            let mut fetched = self
+            let fetched = self
                 .spotify
                 .album_track_manual(&AlbumId::from_uri(id)?, Some(limit), Some(offset))
                 .await?;
 
-            tracks.append(&mut fetched.items);
+            for t in fetched.items {
+                tracks.push(SimpleTrack {
+                    id: t.id.unwrap().uri(),
+                })
+            }
 
             if fetched.next.is_none() {
                 break;

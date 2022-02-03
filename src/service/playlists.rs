@@ -6,14 +6,12 @@ use chrono::DateTime;
 use chrono::Utc;
 
 use rspotify::model::AlbumType;
-use rspotify::model::FullArtist;
-use rspotify::model::PlayableItem;
-use rspotify::prelude::*;
 
 use crate::error::CoolioError;
 use crate::models::Playlist;
 use crate::storage::Storage;
 
+use super::spotify::SimpleArtist;
 use super::spotify::SimpleTrack;
 use super::spotify::Spotify;
 
@@ -58,7 +56,7 @@ impl<S: Spotify> PlaylistService<S> {
             let artist = self.spotify.artist(&art_id).await?;
             println!(
                 "\t{} (popularity: {}, followers: {})",
-                artist.name, artist.popularity, artist.followers.total
+                artist.name, artist.popularity, artist.num_followers
             );
         }
 
@@ -120,7 +118,7 @@ impl<S: Spotify> PlaylistService<S> {
         for art in &artists {
             println!(
                 "[{}] {} (followers: {})",
-                count_id, art.name, art.followers.total
+                count_id, art.name, art.num_followers
             );
             count_id += 1;
         }
@@ -144,11 +142,11 @@ impl<S: Spotify> PlaylistService<S> {
         let chosen_artist_id = &artists[chosen - 1].id;
 
         self.storage
-            .link_artist(&playlist.id, &playlist.name, &chosen_artist_id.uri())
+            .link_artist(&playlist.id, &playlist.name, chosen_artist_id)
             .await?;
 
         if let Some(seed) = seed {
-            self.seed_artist_popular(&chosen_artist_id.uri(), &playlist.id, seed)
+            self.seed_artist_popular(chosen_artist_id, &playlist.id, seed)
                 .await?;
         }
 
@@ -167,14 +165,14 @@ impl<S: Spotify> PlaylistService<S> {
             .search_artists(artist)
             .await?
             .into_iter()
-            .filter(|x| playlist.artists.contains(&x.id.uri()))
-            .collect::<Vec<FullArtist>>();
+            .filter(|x| playlist.artists.contains(&x.id))
+            .collect::<Vec<SimpleArtist>>();
 
         match potentials.len() {
             0 => Err("no artists in the playlist matched your search".into()),
             1 => {
                 self.storage
-                    .unlink_artist(&playlist.id, &potentials[0].id.uri())
+                    .unlink_artist(&playlist.id, &potentials[0].id)
                     .await
             }
             _ => Err("ambigious artists found, try again more concrete".into()),

@@ -12,19 +12,30 @@ use crate::models::{Listen, Playlist};
 
 pub struct SimpleArtist {
     pub id: String,
+    pub name: String,
+    pub popularity: u32,
+    pub num_followers: u32,
 }
 
 impl From<SimplifiedArtist> for SimpleArtist {
     fn from(a: SimplifiedArtist) -> Self {
         SimpleArtist {
             id: a.id.unwrap().uri(),
+            name: a.name,
+            popularity: 0,
+            num_followers: 0,
         }
     }
 }
 
 impl From<FullArtist> for SimpleArtist {
     fn from(a: FullArtist) -> Self {
-        SimpleArtist { id: a.id.uri() }
+        SimpleArtist {
+            id: a.id.uri(),
+            name: a.name,
+            popularity: a.popularity,
+            num_followers: a.followers.total,
+        }
     }
 }
 
@@ -118,8 +129,8 @@ pub trait Spotify {
     ) -> Result<Vec<SimpleAlbum>, CoolioError>;
 
     async fn playlist(&self, id: &str) -> Result<SimplePlaylist, CoolioError>;
-    async fn artist(&self, id: &str) -> Result<FullArtist, CoolioError>;
-    async fn search_artists(&self, name: &str) -> Result<Vec<FullArtist>, CoolioError>;
+    async fn artist(&self, id: &str) -> Result<SimpleArtist, CoolioError>;
+    async fn search_artists(&self, name: &str) -> Result<Vec<SimpleArtist>, CoolioError>;
 }
 
 pub struct HTTPSpotify {
@@ -228,9 +239,9 @@ impl Spotify for HTTPSpotify {
         Ok(p.into())
     }
 
-    async fn artist(&self, id: &str) -> Result<FullArtist, CoolioError> {
+    async fn artist(&self, id: &str) -> Result<SimpleArtist, CoolioError> {
         let p = self.spotify.artist(&ArtistId::from_uri(id)?).await?;
-        Ok(p)
+        Ok(p.into())
     }
 
     async fn artist_top_tracks(&self, id: &str) -> Result<Vec<SimpleTrack>, CoolioError> {
@@ -243,14 +254,14 @@ impl Spotify for HTTPSpotify {
             .collect::<Vec<SimpleTrack>>())
     }
 
-    async fn search_artists(&self, name: &str) -> Result<Vec<FullArtist>, CoolioError> {
+    async fn search_artists(&self, name: &str) -> Result<Vec<SimpleArtist>, CoolioError> {
         let r = self
             .spotify
             .search(name, &SearchType::Artist, None, None, Some(5), None)
             .await?;
 
         match r {
-            SearchResult::Artists(a) => Ok(a.items),
+            SearchResult::Artists(a) => Ok(a.items.into_iter().map(|x| x.into()).collect()),
             _ => unreachable!(),
         }
     }

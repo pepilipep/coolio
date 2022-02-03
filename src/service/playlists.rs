@@ -63,8 +63,8 @@ impl<S: Spotify> PlaylistService<S> {
         }
 
         println!("Description: {:?}", external_playlist.description);
-        println!("Number of tracks: {}", external_playlist.tracks.total);
-        println!("Number of followers: {}", external_playlist.followers.total);
+        println!("Number of tracks: {}", external_playlist.tracks.len());
+        println!("Number of followers: {}", external_playlist.num_followers);
         println!("Is collaborative: {}", external_playlist.collaborative);
         println!("Is public: {:?}", external_playlist.public);
 
@@ -254,18 +254,15 @@ impl<S: Spotify> PlaylistService<S> {
         let external_playlist = self.spotify.playlist(&playlist.id).await?;
 
         let mut last_song_for_artist = HashMap::<String, DateTime<Utc>>::new();
-        for track in external_playlist.tracks.items {
+        for track in external_playlist.tracks {
             if let Some(added_at) = track.added_at {
-                if let PlayableItem::Track(track) = track.track.unwrap() {
-                    for art in track.artists {
-                        let art_id = art.id.unwrap().uri();
-                        if let Some(added_last) = last_song_for_artist.get(&art_id) {
-                            if added_at > *added_last {
-                                last_song_for_artist.insert(art_id, added_at);
-                            }
-                        } else {
-                            last_song_for_artist.insert(art_id, added_at);
+                for art in track.track.artists {
+                    if let Some(added_last) = last_song_for_artist.get(&art.id) {
+                        if added_at > *added_last {
+                            last_song_for_artist.insert(art.id, added_at);
                         }
+                    } else {
+                        last_song_for_artist.insert(art.id, added_at);
                     }
                 }
             }

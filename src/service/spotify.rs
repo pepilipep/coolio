@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use chrono::{DateTime, NaiveDateTime, Utc};
 use rspotify::model::{
-    AlbumId, AlbumType, ArtistId, FullArtist, FullPlaylist, Market, PlaylistId, SearchResult,
-    SearchType, TrackId,
+    AlbumId, AlbumType, ArtistId, FullArtist, FullPlaylist, FullTrack, Market, PlayableItem,
+    PlaylistId, PlaylistItem, SearchResult, SearchType, SimplifiedArtist, SimplifiedTrack, TrackId,
 };
 use rspotify::prelude::*;
 use rspotify::{model::TimeLimits, AuthCodeSpotify};
@@ -10,13 +10,87 @@ use rspotify::{model::TimeLimits, AuthCodeSpotify};
 use crate::error::CoolioError;
 use crate::models::{Listen, Playlist};
 
+pub struct SimpleArtist {
+    pub id: String,
+}
+
+impl From<SimplifiedArtist> for SimpleArtist {
+    fn from(a: SimplifiedArtist) -> Self {
+        SimpleArtist {
+            id: a.id.unwrap().uri(),
+        }
+    }
+}
+
+impl From<FullArtist> for SimpleArtist {
+    fn from(a: FullArtist) -> Self {
+        SimpleArtist { id: a.id.uri() }
+    }
+}
+
 pub struct SimpleTrack {
     pub id: String,
+    pub artists: Vec<SimpleArtist>,
+}
+
+pub struct SimplePlayable {
+    pub added_at: Option<DateTime<Utc>>,
+    pub track: SimpleTrack,
+}
+
+impl From<FullTrack> for SimpleTrack {
+    fn from(t: FullTrack) -> Self {
+        SimpleTrack {
+            id: t.id.unwrap().uri(),
+            artists: t.artists.into_iter().map(|a| a.into()).collect(),
+        }
+    }
+}
+
+impl From<SimplifiedTrack> for SimpleTrack {
+    fn from(t: SimplifiedTrack) -> Self {
+        SimpleTrack {
+            id: t.id.unwrap().uri(),
+            artists: t.artists.into_iter().map(|a| a.into()).collect(),
+        }
+    }
+}
+
+impl From<PlaylistItem> for SimplePlayable {
+    fn from(pi: PlaylistItem) -> Self {
+        SimplePlayable {
+            added_at: pi.added_at,
+            track: match pi.track {
+                Some(PlayableItem::Track(t)) => t.into(),
+                _ => unreachable!(),
+            },
+        }
+    }
 }
 
 pub struct SimpleAlbum {
     pub id: String,
     pub release_date: DateTime<Utc>,
+}
+
+pub struct SimplePlaylist {
+    pub description: Option<String>,
+    pub num_followers: u32,
+    pub collaborative: bool,
+    pub public: bool,
+    pub tracks: Vec<SimplePlayable>,
+}
+
+impl From<FullPlaylist> for SimplePlaylist {
+    fn from(p: FullPlaylist) -> Self {
+        SimplePlaylist {
+            description: p.description,
+            num_followers: p.followers.total,
+            collaborative: p.collaborative,
+            public: p.public.unwrap_or(false),
+            tracks: p.tracks.items.into_iter().map(|x| x.into()).collect(),
+        }
+    }
 }
 
 #[async_trait]
@@ -43,7 +117,7 @@ pub trait Spotify {
         album_type: &AlbumType,
     ) -> Result<Vec<SimpleAlbum>, CoolioError>;
 
-    async fn playlist(&self, id: &str) -> Result<FullPlaylist, CoolioError>;
+    async fn playlist(&self, id: &str) -> Result<SimplePlaylist, CoolioError>;
     async fn artist(&self, id: &str) -> Result<FullArtist, CoolioError>;
     async fn search_artists(&self, name: &str) -> Result<Vec<FullArtist>, CoolioError>;
 }
@@ -146,12 +220,12 @@ impl Spotify for HTTPSpotify {
         Ok(playlists)
     }
 
-    async fn playlist(&self, id: &str) -> Result<FullPlaylist, CoolioError> {
+    async fn playlist(&self, id: &str) -> Result<SimplePlaylist, CoolioError> {
         let p = self
             .spotify
             .playlist(&PlaylistId::from_uri(id)?, None, None)
             .await?;
-        Ok(p)
+        Ok(p.into())
     }
 
     async fn artist(&self, id: &str) -> Result<FullArtist, CoolioError> {
@@ -165,9 +239,7 @@ impl Spotify for HTTPSpotify {
             .artist_top_tracks(&ArtistId::from_uri(id)?, &Market::FromToken)
             .await?
             .into_iter()
-            .map(|x| SimpleTrack {
-                id: x.id.unwrap().uri(),
-            })
+            .map(|x| x.into())
             .collect::<Vec<SimpleTrack>>())
     }
 
@@ -244,9 +316,7 @@ impl Spotify for HTTPSpotify {
                 .await?;
 
             for t in fetched.items {
-                tracks.push(SimpleTrack {
-                    id: t.id.unwrap().uri(),
-                })
+                tracks.push(t.into())
             }
 
             if fetched.next.is_none() {

@@ -1,5 +1,5 @@
 use std::collections::HashSet;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use rspotify::{prelude::*, AuthCodeSpotify, Config, Credentials, OAuth};
 
@@ -33,9 +33,9 @@ pub async fn new_spotify(conf: Spotify) -> HTTPSpotify {
     HTTPSpotify::new(spotify)
 }
 
-pub async fn new_storage(conf: StorageConf) -> Result<Rc<dyn Storage>, CoolioError> {
+pub async fn new_storage(conf: StorageConf) -> Result<Arc<dyn Storage>, CoolioError> {
     match conf {
-        StorageConf::Psql(db) => Ok(Rc::new(Psql::new(db).await?)),
-        StorageConf::Fs(ls) => Ok(Rc::new(Fs::new(ls).await?)),
+        StorageConf::Psql(db) => Ok(Arc::new(Psql::new(db).await?)),
+        StorageConf::Fs(ls) => Ok(Arc::new(Fs::new(ls).await?)),
     }
 }

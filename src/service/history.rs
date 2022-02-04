@@ -1,6 +1,6 @@
 use std::cmp::min;
 use std::collections::{HashMap, HashSet};
-use std::rc::Rc;
+use std::sync::Arc;
 
 use chrono::{Duration, Utc};
 
@@ -10,12 +10,12 @@ use crate::{error::CoolioError, storage::Storage};
 use super::spotify::Spotify;
 
 pub struct HistoryService<S: Spotify> {
-    spotify: Rc<S>,
-    storage: Rc<dyn Storage>,
+    spotify: Arc<S>,
+    storage: Arc<dyn Storage>,
 }
 
 impl<S: Spotify> HistoryService<S> {
-    pub fn new(spotify: Rc<S>, storage: Rc<dyn Storage>) -> Self {
+    pub fn new(spotify: Arc<S>, storage: Arc<dyn Storage>) -> Self {
         HistoryService { spotify, storage }
     }
 

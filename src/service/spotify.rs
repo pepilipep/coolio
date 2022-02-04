@@ -105,7 +105,7 @@ impl From<FullPlaylist> for SimplePlaylist {
 }
 
 #[async_trait]
-pub trait Spotify {
+pub trait Spotify: Send + Sync {
     async fn current_user_recently_played(
         &self,
         limit: u32,

@@ -8,9 +8,18 @@ use crate::{
     storage::Storage,
 };
 
-struct MockStorage {
+pub struct MockStorage {
     listens: Mutex<Vec<Listen>>,
     playlists: Mutex<Vec<Playlist>>,
+}
+
+impl MockStorage {
+    pub fn new() -> Self {
+        MockStorage {
+            listens: Mutex::new(vec![]),
+            playlists: Mutex::new(vec![]),
+        }
+    }
 }
 
 #[async_trait]

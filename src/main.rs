@@ -22,7 +22,7 @@ async fn execute() -> Result<(), CoolioError> {
     let storage = new_storage(settings.storage).await?;
     let service = Service::new(spotify, storage);
 
-    parser.parse(service).await
+    parser.parse(&service).await
 }
 
 #[tokio::main]

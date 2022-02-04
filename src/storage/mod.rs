@@ -2,12 +2,24 @@ pub mod fs;
 pub mod psql;
 
 use async_trait::async_trait;
+use enum_dispatch::enum_dispatch;
+
+use fs::Fs;
+use psql::Psql;
 
 use crate::error::CoolioError;
+
+#[enum_dispatch]
+pub enum StorageBehavior {
+    Psql,
+    Fs,
+    // Mock,
+}
 
 use crate::models::{Listen, Playlist};
 
 #[async_trait]
+#[enum_dispatch(StorageBehavior)]
 pub trait Storage: Send + Sync {
     async fn add_history(&self, listen: Listen) -> Result<(), CoolioError>;
 

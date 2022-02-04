@@ -1,6 +1,5 @@
 use std::cmp::min;
 use std::collections::HashMap;
-use std::sync::Arc;
 
 use chrono::DateTime;
 use chrono::Utc;
@@ -10,24 +9,22 @@ use rspotify::model::AlbumType;
 use crate::error::CoolioError;
 use crate::models::Playlist;
 use crate::storage::Storage;
+use crate::storage::StorageBehavior;
 
 use super::spotify::SimpleArtist;
 use super::spotify::SimpleTrack;
 use super::spotify::Spotify;
 
-pub struct PlaylistService<S: Spotify> {
-    spotify: Arc<S>,
-    storage: Arc<dyn Storage>,
-}
+pub struct PlaylistService {}
 
-impl<S: Spotify> PlaylistService<S> {
-    pub fn new(spotify: Arc<S>, storage: Arc<dyn Storage>) -> Self {
-        PlaylistService { spotify, storage }
-    }
-
-    pub async fn list(&self) -> Result<(), CoolioError> {
-        let mut playlists = self.spotify.current_user_playlists().await?;
-        let mut stored_playlists = self.storage.get_playlists().await?;
+impl PlaylistService {
+    pub async fn list(
+        &self,
+        spotify: &impl Spotify,
+        storage: &StorageBehavior,
+    ) -> Result<(), CoolioError> {
+        let mut playlists = spotify.current_user_playlists().await?;
+        let mut stored_playlists = storage.get_playlists().await?;
 
         stored_playlists.append(&mut playlists);
         stored_playlists.dedup_by_key(|p| p.id.clone());
@@ -47,13 +44,18 @@ impl<S: Spotify> PlaylistService<S> {
         Ok(())
     }
 
-    pub async fn show(&self, name: &str) -> Result<(), CoolioError> {
-        let playlist = self.storage.get_playlist(name).await?;
-        let external_playlist = self.spotify.playlist(&playlist.id).await?;
+    pub async fn show(
+        &self,
+        spotify: &impl Spotify,
+        storage: &StorageBehavior,
+        name: &str,
+    ) -> Result<(), CoolioError> {
+        let playlist = storage.get_playlist(name).await?;
+        let external_playlist = spotify.playlist(&playlist.id).await?;
 
         println!("Artists:");
         for art_id in playlist.artists {
-            let artist = self.spotify.artist(&art_id).await?;
+            let artist = spotify.artist(&art_id).await?;
             println!(
                 "\t{} (popularity: {}, followers: {})",
                 artist.name, artist.popularity, artist.num_followers
@@ -69,20 +71,30 @@ impl<S: Spotify> PlaylistService<S> {
         Ok(())
     }
 
-    pub async fn create(&self, name: &str) -> Result<(), CoolioError> {
-        let playlist = self.spotify.create_playlist(name).await?;
-        self.storage
+    pub async fn create(
+        &self,
+        spotify: &impl Spotify,
+        storage: &StorageBehavior,
+        name: &str,
+    ) -> Result<(), CoolioError> {
+        let playlist = spotify.create_playlist(name).await?;
+        storage
             .create_playlist(&playlist.id, &playlist.name)
             .await?;
 
         Ok(())
     }
 
-    pub async fn automate(&self, name: &str) -> Result<(), CoolioError> {
-        let playlists = self.spotify.current_user_playlists().await?;
+    pub async fn automate(
+        &self,
+        spotify: &impl Spotify,
+        storage: &StorageBehavior,
+        name: &str,
+    ) -> Result<(), CoolioError> {
+        let playlists = spotify.current_user_playlists().await?;
         for p in playlists {
             if p.name == name {
-                return self.storage.create_playlist(&p.id, name).await;
+                return storage.create_playlist(&p.id, name).await;
             }
         }
         Err("The playlist doesn't exist".into())
@@ -90,13 +102,15 @@ impl<S: Spotify> PlaylistService<S> {
 
     async fn seed_artist_popular(
         &self,
+        spotify: &impl Spotify,
+        storage: &StorageBehavior,
         artist_id: &String,
         playlist_id: &String,
         seed: usize,
     ) -> Result<(), CoolioError> {
-        let tracks = self.spotify.artist_top_tracks(artist_id).await?;
+        let tracks = spotify.artist_top_tracks(artist_id).await?;
         let seed = min(seed, tracks.len());
-        self.spotify
+        spotify
             .playlist_add_items(playlist_id, tracks[..seed].iter().map(|x| x.id.clone()))
             .await?;
 
@@ -105,13 +119,15 @@ impl<S: Spotify> PlaylistService<S> {
 
     pub async fn link_playlist_to_artist(
         &self,
+        spotify: &impl Spotify,
+        storage: &StorageBehavior,
         playlist: &str,
         artist: &str,
         seed: Option<usize>,
     ) -> Result<(), CoolioError> {
-        let playlist = self.storage.get_playlist(playlist).await?;
+        let playlist = storage.get_playlist(playlist).await?;
 
-        let artists = self.spotify.search_artists(artist).await?;
+        let artists = spotify.search_artists(artist).await?;
 
         let mut count_id = 1;
         println!("choose one of the following artists:");
@@ -141,12 +157,12 @@ impl<S: Spotify> PlaylistService<S> {
 
         let chosen_artist_id = &artists[chosen - 1].id;
 
-        self.storage
+        storage
             .link_artist(&playlist.id, &playlist.name, chosen_artist_id)
             .await?;
 
         if let Some(seed) = seed {
-            self.seed_artist_popular(chosen_artist_id, &playlist.id, seed)
+            self.seed_artist_popular(spotify, storage, chosen_artist_id, &playlist.id, seed)
                 .await?;
         }
 
@@ -155,13 +171,14 @@ impl<S: Spotify> PlaylistService<S> {
 
     pub async fn unlink_artist_from_playlist(
         &self,
+        spotify: &impl Spotify,
+        storage: &StorageBehavior,
         playlist: &str,
         artist: &str,
     ) -> Result<(), CoolioError> {
-        let playlist = self.storage.get_playlist(playlist).await?;
+        let playlist = storage.get_playlist(playlist).await?;
 
-        let potentials = self
-            .spotify
+        let potentials = spotify
             .search_artists(artist)
             .await?
             .into_iter()
@@ -170,22 +187,20 @@ impl<S: Spotify> PlaylistService<S> {
 
         match potentials.len() {
             0 => Err("no artists in the playlist matched your search".into()),
-            1 => {
-                self.storage
-                    .unlink_artist(&playlist.id, &potentials[0].id)
-                    .await
-            }
+            1 => storage.unlink_artist(&playlist.id, &potentials[0].id).await,
             _ => Err("ambigious artists found, try again more concrete".into()),
         }
     }
 
     async fn artists_new_albums_filter(
         &self,
+        spotify: &impl Spotify,
+        storage: &StorageBehavior,
         artist_id: &String,
         last_added: &DateTime<Utc>,
         album_type: &AlbumType,
     ) -> Result<Vec<String>, CoolioError> {
-        let albums = self.spotify.artist_albums(artist_id, album_type).await?;
+        let albums = spotify.artist_albums(artist_id, album_type).await?;
         let mut album_ids = Vec::<String>::new();
 
         for album in albums {
@@ -199,13 +214,15 @@ impl<S: Spotify> PlaylistService<S> {
 
     async fn artists_new_albums(
         &self,
+        spotify: &impl Spotify,
+        storage: &StorageBehavior,
         artist_id: &String,
         last_added: &DateTime<Utc>,
     ) -> Result<Vec<String>, CoolioError> {
         let mut all = Vec::<String>::new();
         for t in &[AlbumType::Album, AlbumType::Single] {
             let f = self
-                .artists_new_albums_filter(artist_id, last_added, &t)
+                .artists_new_albums_filter(spotify, storage, artist_id, last_added, &t)
                 .await?;
 
             for t in f {
@@ -217,11 +234,16 @@ impl<S: Spotify> PlaylistService<S> {
         Ok(all)
     }
 
-    async fn albums_to_tracks(&self, albums: Vec<String>) -> Result<Vec<SimpleTrack>, CoolioError> {
+    async fn albums_to_tracks(
+        &self,
+        spotify: &impl Spotify,
+        storage: &StorageBehavior,
+        albums: Vec<String>,
+    ) -> Result<Vec<SimpleTrack>, CoolioError> {
         let mut tracks_to_add = Vec::<SimpleTrack>::new();
 
         for album_id_to_add in albums {
-            let mut tracks = self.spotify.album_tracks(&album_id_to_add).await?;
+            let mut tracks = spotify.album_tracks(&album_id_to_add).await?;
             tracks_to_add.append(&mut tracks);
         }
 
@@ -230,14 +252,18 @@ impl<S: Spotify> PlaylistService<S> {
 
     async fn artist_add_last(
         &self,
+        spotify: &impl Spotify,
+        storage: &StorageBehavior,
         artist_id: &String,
         playlist_id: &String,
         last_added: &DateTime<Utc>,
     ) -> Result<(), CoolioError> {
-        let album_ids = self.artists_new_albums(artist_id, last_added).await?;
-        let tracks = self.albums_to_tracks(album_ids).await?;
+        let album_ids = self
+            .artists_new_albums(spotify, storage, artist_id, last_added)
+            .await?;
+        let tracks = self.albums_to_tracks(spotify, storage, album_ids).await?;
         if tracks.len() > 0 {
-            self.spotify
+            spotify
                 .playlist_add_items(playlist_id, tracks.into_iter().map(|x| x.id))
                 .await?;
         }
@@ -247,9 +273,11 @@ impl<S: Spotify> PlaylistService<S> {
 
     async fn playlist_artist_last_add(
         &self,
+        spotify: &impl Spotify,
+        storage: &StorageBehavior,
         playlist: &Playlist,
     ) -> Result<HashMap<String, DateTime<Utc>>, CoolioError> {
-        let external_playlist = self.spotify.playlist(&playlist.id).await?;
+        let external_playlist = spotify.playlist(&playlist.id).await?;
 
         let mut last_song_for_artist = HashMap::<String, DateTime<Utc>>::new();
         for track in external_playlist.tracks {
@@ -268,14 +296,24 @@ impl<S: Spotify> PlaylistService<S> {
         Ok(last_song_for_artist)
     }
 
-    async fn playlist_update(&self, playlist: &Playlist) -> Result<(), CoolioError> {
-        let last_song_for_artist = self.playlist_artist_last_add(playlist).await?;
+    async fn playlist_update(
+        &self,
+        spotify: &impl Spotify,
+        storage: &StorageBehavior,
+        playlist: &Playlist,
+    ) -> Result<(), CoolioError> {
+        let last_song_for_artist = self
+            .playlist_artist_last_add(spotify, storage, playlist)
+            .await?;
 
         for artist_id in &playlist.artists {
             match last_song_for_artist.get(artist_id) {
-                None => self.seed_artist_popular(artist_id, &playlist.id, 5).await?,
+                None => {
+                    self.seed_artist_popular(spotify, storage, artist_id, &playlist.id, 5)
+                        .await?
+                }
                 Some(last_added) => {
-                    self.artist_add_last(artist_id, &playlist.id, last_added)
+                    self.artist_add_last(spotify, storage, artist_id, &playlist.id, last_added)
                         .await?
                 }
             }
@@ -284,10 +322,14 @@ impl<S: Spotify> PlaylistService<S> {
         Ok(())
     }
 
-    pub async fn update(&self) -> Result<(), CoolioError> {
-        let playlists = self.storage.get_playlists().await?;
+    pub async fn update(
+        &self,
+        spotify: &impl Spotify,
+        storage: &StorageBehavior,
+    ) -> Result<(), CoolioError> {
+        let playlists = storage.get_playlists().await?;
         for playlist in playlists {
-            self.playlist_update(&playlist).await?
+            self.playlist_update(spotify, storage, &playlist).await?
         }
         Ok(())
     }

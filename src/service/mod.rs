@@ -1,8 +1,6 @@
-use std::sync::Arc;
-
 use async_trait::async_trait;
 
-use crate::{error::CoolioError, models::ThrowbackPeriod, storage::Storage};
+use crate::{error::CoolioError, models::ThrowbackPeriod, storage::StorageBehavior};
 
 use self::{history::HistoryService, playlists::PlaylistService, spotify::Spotify};
 
@@ -11,16 +9,19 @@ pub mod playlists;
 pub mod spotify;
 
 pub struct Service<S: Spotify> {
-    pub history: HistoryService<S>,
-    pub playlists: PlaylistService<S>,
+    pub spotify: S,
+    pub storage: StorageBehavior,
+    history: HistoryService,
+    playlists: PlaylistService,
 }
 
 impl<S: Spotify> Service<S> {
-    pub fn new(spotify: S, storage: Arc<dyn Storage>) -> Self {
-        let s = Arc::new(spotify);
+    pub fn new(spotify: S, storage: StorageBehavior) -> Self {
         Service {
-            history: HistoryService::new(Arc::clone(&s), Arc::clone(&storage)),
-            playlists: PlaylistService::new(Arc::clone(&s), Arc::clone(&storage)),
+            spotify,
+            storage,
+            history: HistoryService {},
+            playlists: PlaylistService {},
         }
     }
 }
@@ -63,7 +64,7 @@ pub trait ServiceTrait: Send + Sync {
 #[async_trait]
 impl<S: Spotify> ServiceTrait for Service<S> {
     async fn history_update(&self) -> Result<(), CoolioError> {
-        self.history.update().await
+        self.history.update(&self.spotify, &self.storage).await
     }
 
     async fn throwback(
@@ -72,23 +73,31 @@ impl<S: Spotify> ServiceTrait for Service<S> {
         period: Option<ThrowbackPeriod>,
         size: Option<usize>,
     ) -> Result<(), CoolioError> {
-        self.history.throwback(name, period, size).await
+        self.history
+            .throwback(&self.spotify, &self.storage, name, period, size)
+            .await
     }
 
     async fn playlists_list(&self) -> Result<(), CoolioError> {
-        self.playlists.list().await
+        self.playlists.list(&self.spotify, &self.storage).await
     }
 
     async fn playlists_show(&self, name: &str) -> Result<(), CoolioError> {
-        self.playlists.show(name).await
+        self.playlists
+            .show(&self.spotify, &self.storage, name)
+            .await
     }
 
     async fn playlists_create(&self, name: &str) -> Result<(), CoolioError> {
-        self.playlists.create(name).await
+        self.playlists
+            .create(&self.spotify, &self.storage, name)
+            .await
     }
 
     async fn playlists_automate(&self, name: &str) -> Result<(), CoolioError> {
-        self.playlists.automate(name).await
+        self.playlists
+            .automate(&self.spotify, &self.storage, name)
+            .await
     }
 
     async fn link_playlist_to_artist(
@@ -98,7 +107,7 @@ impl<S: Spotify> ServiceTrait for Service<S> {
         seed: Option<usize>,
     ) -> Result<(), CoolioError> {
         self.playlists
-            .link_playlist_to_artist(playlist, artist, seed)
+            .link_playlist_to_artist(&self.spotify, &self.storage, playlist, artist, seed)
             .await
     }
 
@@ -108,11 +117,11 @@ impl<S: Spotify> ServiceTrait for Service<S> {
         artist: &str,
     ) -> Result<(), CoolioError> {
         self.playlists
-            .unlink_artist_from_playlist(playlist, artist)
+            .unlink_artist_from_playlist(&self.spotify, &self.storage, playlist, artist)
             .await
     }
 
     async fn playlists_update(&self) -> Result<(), CoolioError> {
-        self.playlists.update().await
+        self.playlists.update(&self.spotify, &self.storage).await
     }
 }

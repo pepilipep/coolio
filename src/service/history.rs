@@ -1,40 +1,38 @@
 use std::cmp::min;
 use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
 
 use chrono::{Duration, Utc};
 
 use crate::models::ThrowbackPeriod;
+use crate::storage::StorageBehavior;
 use crate::{error::CoolioError, storage::Storage};
 
 use super::spotify::Spotify;
 
-pub struct HistoryService<S: Spotify> {
-    spotify: Arc<S>,
-    storage: Arc<dyn Storage>,
-}
+pub struct HistoryService {}
 
-impl<S: Spotify> HistoryService<S> {
-    pub fn new(spotify: Arc<S>, storage: Arc<dyn Storage>) -> Self {
-        HistoryService { spotify, storage }
-    }
+impl HistoryService {
+    pub async fn update(
+        &self,
+        spotify: &impl Spotify,
+        storage: &StorageBehavior,
+    ) -> Result<(), CoolioError> {
+        let last_listen = storage.get_last_listen().await.ok().map(|x| x.time);
 
-    pub async fn update(&self) -> Result<(), CoolioError> {
-        let last_listen = self.storage.get_last_listen().await.ok().map(|x| x.time);
-
-        let recent = self
-            .spotify
+        let recent = spotify
             .current_user_recently_played(50, last_listen)
             .await?;
 
         for l in recent {
-            self.storage.add_history(l).await?;
+            storage.add_history(l).await?;
         }
         Ok(())
     }
 
     pub async fn throwback(
         &self,
+        spotify: &impl Spotify,
+        storage: &StorageBehavior,
         name: Option<&str>,
         period: Option<ThrowbackPeriod>,
         size: Option<usize>,
@@ -48,7 +46,7 @@ impl<S: Spotify> HistoryService<S> {
         };
         let before = Utc::now() - offset;
 
-        let history = self.storage.get_history().await?;
+        let history = storage.get_history().await?;
 
         let mut blacklisted = HashSet::<String>::new();
         for h in &history {
@@ -80,8 +78,7 @@ impl<S: Spotify> HistoryService<S> {
             return Ok(());
         }
 
-        let playlist = self
-            .spotify
+        let playlist = spotify
             .create_playlist(name.unwrap_or(&format!("Throwback - {}", Utc::today())))
             .await?;
 
@@ -89,9 +86,7 @@ impl<S: Spotify> HistoryService<S> {
 
         let to_add = entries[..size].iter().map(|x| x.id.clone());
 
-        self.spotify
-            .playlist_add_items(&playlist.id, to_add)
-            .await?;
+        spotify.playlist_add_items(&playlist.id, to_add).await?;
 
         Ok(())
     }

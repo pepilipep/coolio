@@ -9,8 +9,8 @@ use crate::{
 };
 
 pub struct MockStorage {
-    listens: Mutex<Vec<Listen>>,
-    playlists: Mutex<Vec<Playlist>>,
+    pub listens: Mutex<Vec<Listen>>,
+    pub playlists: Mutex<Vec<Playlist>>,
 }
 
 impl MockStorage {

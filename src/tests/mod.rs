@@ -1,104 +1,35 @@
-mod mock_spotify;
-mod mock_storage;
-
+use std::borrow::Borrow;
 use std::ops::{Deref, DerefMut};
 
-use async_trait::async_trait;
-use tokio::sync::Mutex;
+use chrono::Utc;
 
-use crate::{error::CoolioError, models::ThrowbackPeriod, parser::Parser, service::ServiceTrait};
+use crate::models::Listen;
+use crate::service::Service;
+use crate::storage::Storage;
 
-#[derive(Default)]
-pub struct MockService {
-    call_history_update: Mutex<u32>,
-    call_throwback: Mutex<u32>,
-    call_playlists_list: Mutex<u32>,
-    call_playlists_show: Mutex<u32>,
-    call_playlists_create: Mutex<u32>,
-    call_playlists_automate: Mutex<u32>,
-    call_link_playlist_to_artist: Mutex<u32>,
-    call_unlink_artist_from_playlist: Mutex<u32>,
-    call_playlists_update: Mutex<u32>,
-}
+use self::{mock_spotify::MockSpotify, mock_storage::MockStorage};
 
-#[async_trait]
-impl ServiceTrait for MockService {
-    async fn history_update(&self) -> Result<(), CoolioError> {
-        *self.call_history_update.lock().await.deref_mut() += 1;
-        Ok(())
-    }
+mod mock_spotify;
+mod mock_storage;
+mod parser;
 
-    async fn throwback(
-        &self,
-        _name: Option<&str>,
-        _period: Option<ThrowbackPeriod>,
-        _size: Option<usize>,
-    ) -> Result<(), CoolioError> {
-        *self.call_throwback.lock().await.deref_mut() += 1;
-        Ok(())
-    }
+// #[tokio::test]
+// async fn test_history_update() {
+//     let st = Box::new(MockStorage::new());
+//     let sp = MockSpotify::new();
+//     let s = Service::new(sp, st);
 
-    async fn playlists_list(&self) -> Result<(), CoolioError> {
-        *self.call_playlists_list.lock().await.deref_mut() += 1;
-        Ok(())
-    }
+//     s.history.update().await.unwrap();
 
-    async fn playlists_show(&self, _name: &str) -> Result<(), CoolioError> {
-        *self.call_playlists_show.lock().await.deref_mut() += 1;
-        Ok(())
-    }
+//     let listens = st.listens.lock().await.borrow();
 
-    async fn playlists_create(&self, _name: &str) -> Result<(), CoolioError> {
-        *self.call_playlists_create.lock().await.deref_mut() += 1;
-        Ok(())
-    }
+//     assert_eq!(listens.len(), 2);
 
-    async fn playlists_automate(&self, _name: &str) -> Result<(), CoolioError> {
-        *self.call_playlists_automate.lock().await.deref_mut() += 1;
-        Ok(())
-    }
-
-    async fn link_playlist_to_artist(
-        &self,
-        _playlist: &str,
-        _artist: &str,
-        _seed: Option<usize>,
-    ) -> Result<(), CoolioError> {
-        *self.call_link_playlist_to_artist.lock().await.deref_mut() += 1;
-        Ok(())
-    }
-
-    async fn unlink_artist_from_playlist(
-        &self,
-        _playlist: &str,
-        _artist: &str,
-    ) -> Result<(), CoolioError> {
-        *self
-            .call_unlink_artist_from_playlist
-            .lock()
-            .await
-            .deref_mut() += 1;
-        Ok(())
-    }
-
-    async fn playlists_update(&self) -> Result<(), CoolioError> {
-        *self.call_playlists_update.lock().await.deref_mut() += 1;
-        Ok(())
-    }
-}
-
-#[tokio::test]
-async fn test_parser_history_update() {
-    let s = MockService::default();
-    let parser = Parser::new(vec!["coolio", "history", "update"]);
-    parser.parse(&s).await.unwrap();
-    assert_eq!(&1, s.call_history_update.lock().await.deref());
-}
-
-#[tokio::test]
-async fn test_parser_throwback() {
-    let s = MockService::default();
-    let parser = Parser::new(vec!["coolio", "history", "throwback"]);
-    parser.parse(&s).await.unwrap();
-    assert_eq!(&1, s.call_throwback.lock().await.deref());
-}
+//     assert_eq!(
+//         listens[0],
+//         Listen {
+//             song_id: "song_id_1".to_string(),
+//             time: Utc::now()
+//         }
+//     );
+// }

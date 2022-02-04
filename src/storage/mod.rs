@@ -1,19 +1,23 @@
 pub mod fs;
+pub mod mock;
 pub mod psql;
 
 use async_trait::async_trait;
+use enum_as_inner::EnumAsInner;
 use enum_dispatch::enum_dispatch;
 
 use fs::Fs;
+use mock::Mock;
 use psql::Psql;
 
 use crate::error::CoolioError;
 
 #[enum_dispatch]
+#[derive(EnumAsInner)]
 pub enum StorageBehavior {
     Psql,
     Fs,
-    // Mock,
+    Mock,
 }
 
 use crate::models::{Listen, Playlist};

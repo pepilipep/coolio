@@ -1,6 +1,7 @@
 use std::{error, fmt, io};
 
 use chrono::ParseError;
+use clap::Error as ClapError;
 use config::ConfigError;
 use rspotify::model::IdError;
 
@@ -81,6 +82,14 @@ impl From<csv::Error> for CoolioError {
     fn from(e: csv::Error) -> Self {
         CoolioError {
             msg: format!("Persisting to file error: {}", e),
+        }
+    }
+}
+
+impl From<ClapError> for CoolioError {
+    fn from(e: ClapError) -> Self {
+        CoolioError {
+            msg: format!("{}", e),
         }
     }
 }

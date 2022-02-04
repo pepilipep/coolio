@@ -4,32 +4,27 @@ use std::ops::{Deref, DerefMut};
 use chrono::Utc;
 
 use crate::models::Listen;
-use crate::service::Service;
-use crate::storage::Storage;
+use crate::service::{Service, ServiceTrait};
+use crate::storage::mock::Mock as MockStorage;
+use crate::storage::StorageBehavior;
 
-use self::{mock_spotify::MockSpotify, mock_storage::MockStorage};
+use self::mock_spotify::MockSpotify;
 
 mod mock_spotify;
-mod mock_storage;
 mod parser;
 
-// #[tokio::test]
-// async fn test_history_update() {
-//     let st = Box::new(MockStorage::new());
-//     let sp = MockSpotify::new();
-//     let s = Service::new(sp, st);
+#[tokio::test]
+async fn test_history_update() {
+    let st_to = StorageBehavior::from(MockStorage::new());
+    let sp = MockSpotify::new();
+    let s = Service::new(&sp, &st_to);
 
-//     s.history.update().await.unwrap();
+    s.history_update().await.unwrap();
 
-//     let listens = st.listens.lock().await.borrow();
+    let st = st_to.as_mock().unwrap();
+    let listens = st.listens.lock().await;
 
-//     assert_eq!(listens.len(), 2);
+    assert_eq!(listens.len(), 2);
 
-//     assert_eq!(
-//         listens[0],
-//         Listen {
-//             song_id: "song_id_1".to_string(),
-//             time: Utc::now()
-//         }
-//     );
-// }
+    assert_eq!(listens[0].song_id, "song_id_1");
+}

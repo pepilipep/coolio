@@ -16,11 +16,11 @@ use service::Service;
 use settings::Settings;
 
 async fn execute() -> Result<(), CoolioError> {
-    let parser = Parser::new(env::args_os());
+    let parser = Parser::new(env::args_os())?;
     let settings = Settings::new()?;
     let spotify = new_spotify(settings.spotify).await;
     let storage = new_storage(settings.storage).await?;
-    let service = Service::new(spotify, storage);
+    let service = Service::new(&spotify, &storage);
 
     parser.parse(&service).await
 }

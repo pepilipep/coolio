@@ -17,3 +17,4 @@ tokio = {version = "1.11.0", features = ["rt-multi-thread", "macros"]}
 tokio-postgres = {version = "0.7.5", features = ["with-chrono-0_4"]}
 csv = "1.1.6"
 enum_dispatch = "0.3.7"
+enum-as-inner = "0.3.3"

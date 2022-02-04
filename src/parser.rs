@@ -4,12 +4,15 @@ use crate::service::ServiceTrait;
 use crate::{error::CoolioError, models::ThrowbackPeriod};
 use clap::{app_from_crate, arg, App, AppSettings, ArgMatches};
 
+#[derive(Debug)]
 pub struct Parser {
     matches: ArgMatches,
 }
 
 impl Parser {
-    pub fn new<T: Into<OsString> + Clone, I: IntoIterator<Item = T>>(args: I) -> Self {
+    pub fn new<T: Into<OsString> + Clone, I: IntoIterator<Item = T>>(
+        args: I,
+    ) -> Result<Self, CoolioError> {
         let matches = app_from_crate!()
             .setting(AppSettings::SubcommandRequiredElseHelp)
             .subcommand(
@@ -71,8 +74,8 @@ impl Parser {
                             .arg(arg!(<PLAYLIST> "name of the playlist")),
                     ),
             )
-            .get_matches_from(args);
-        Parser { matches }
+            .try_get_matches_from(args)?;
+        Ok(Parser { matches })
     }
 
     pub async fn parse<S: ServiceTrait>(&self, service: &S) -> Result<(), CoolioError> {

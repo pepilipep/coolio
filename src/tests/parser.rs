@@ -87,7 +87,7 @@ impl ServiceTrait for MockService {
 #[tokio::test]
 async fn test_parser_history_update() {
     let s = MockService::default();
-    let parser = Parser::new(vec!["coolio", "history", "update"]);
+    let parser = Parser::new(vec!["coolio", "history", "update"]).unwrap();
     parser.parse(&s).await.unwrap();
     assert_eq!(&1, s.call_history_update.lock().await.deref());
 }
@@ -95,7 +95,23 @@ async fn test_parser_history_update() {
 #[tokio::test]
 async fn test_parser_throwback() {
     let s = MockService::default();
-    let parser = Parser::new(vec!["coolio", "history", "throwback"]);
+    let parser = Parser::new(vec!["coolio", "history", "throwback"]).unwrap();
     parser.parse(&s).await.unwrap();
     assert_eq!(&1, s.call_throwback.lock().await.deref());
+}
+
+#[tokio::test]
+async fn test_parser_playlists_list() {
+    let s = MockService::default();
+    let parser = Parser::new(vec!["coolio", "playlists", "list"]).unwrap();
+    parser.parse(&s).await.unwrap();
+    assert_eq!(&1, s.call_playlists_list.lock().await.deref());
+}
+
+#[test]
+fn test_parser_incorrect_usage() {
+    Parser::new(vec!["coolio", "unexisting-subcommand"]).unwrap_err();
+    Parser::new(vec!["coolio", "playlists"]).unwrap_err();
+    Parser::new(vec!["coolio", "playlists", "list", "nope"]).unwrap_err();
+    Parser::new(vec!["coolio", "playlists", "list", "-o DOESNTXIST"]).unwrap_err();
 }

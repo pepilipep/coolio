@@ -8,14 +8,14 @@ use crate::{
     storage::Storage,
 };
 
-pub struct MockStorage {
+pub struct Mock {
     pub listens: Mutex<Vec<Listen>>,
     pub playlists: Mutex<Vec<Playlist>>,
 }
 
-impl MockStorage {
+impl Mock {
     pub fn new() -> Self {
-        MockStorage {
+        Mock {
             listens: Mutex::new(vec![]),
             playlists: Mutex::new(vec![]),
         }
@@ -23,7 +23,7 @@ impl MockStorage {
 }
 
 #[async_trait]
-impl Storage for MockStorage {
+impl Storage for Mock {
     async fn add_history(&self, listen: Listen) -> Result<(), CoolioError> {
         self.listens.lock().await.borrow_mut().push(listen);
         Ok(())

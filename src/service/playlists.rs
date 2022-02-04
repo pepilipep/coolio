@@ -103,7 +103,7 @@ impl PlaylistService {
     async fn seed_artist_popular(
         &self,
         spotify: &impl Spotify,
-        storage: &StorageBehavior,
+        _storage: &StorageBehavior,
         artist_id: &String,
         playlist_id: &String,
         seed: usize,
@@ -195,7 +195,7 @@ impl PlaylistService {
     async fn artists_new_albums_filter(
         &self,
         spotify: &impl Spotify,
-        storage: &StorageBehavior,
+        _storage: &StorageBehavior,
         artist_id: &String,
         last_added: &DateTime<Utc>,
         album_type: &AlbumType,
@@ -237,7 +237,7 @@ impl PlaylistService {
     async fn albums_to_tracks(
         &self,
         spotify: &impl Spotify,
-        storage: &StorageBehavior,
+        _storage: &StorageBehavior,
         albums: Vec<String>,
     ) -> Result<Vec<SimpleTrack>, CoolioError> {
         let mut tracks_to_add = Vec::<SimpleTrack>::new();
@@ -274,7 +274,7 @@ impl PlaylistService {
     async fn playlist_artist_last_add(
         &self,
         spotify: &impl Spotify,
-        storage: &StorageBehavior,
+        _storage: &StorageBehavior,
         playlist: &Playlist,
     ) -> Result<HashMap<String, DateTime<Utc>>, CoolioError> {
         let external_playlist = spotify.playlist(&playlist.id).await?;

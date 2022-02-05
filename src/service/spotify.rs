@@ -155,7 +155,7 @@ pub trait Spotify: Send + Sync {
         items: impl IntoIterator<Item = String> + Send + 'a,
     ) -> Result<(), CoolioError>;
     async fn current_user_playlists(&self) -> Result<Vec<SimplePlaylist>, CoolioError>;
-    async fn artist_top_tracks(&self, name: &str) -> Result<Vec<SimpleTrack>, CoolioError>;
+    async fn artist_top_tracks(&self, id: &str) -> Result<Vec<SimpleTrack>, CoolioError>;
     async fn album_tracks(&self, id: &str) -> Result<Vec<SimpleTrack>, CoolioError>;
     async fn artist_albums(
         &self,

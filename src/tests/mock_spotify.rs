@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use rspotify::model::AlbumType;
+use tokio::sync::Mutex;
 
 use crate::{
     error::CoolioError,
@@ -8,11 +9,20 @@ use crate::{
     service::spotify::{SimpleAlbum, SimpleArtist, SimplePlaylist, SimpleTrack, Spotify},
 };
 
-pub struct MockSpotify {}
+#[derive(Clone, Default)]
+pub struct SpotifyState {
+    playlists: Vec<SimplePlaylist>,
+}
+
+pub struct MockSpotify {
+    state: Mutex<SpotifyState>,
+}
 
 impl MockSpotify {
     pub fn new() -> Self {
-        MockSpotify {}
+        MockSpotify {
+            state: Mutex::new(SpotifyState::default()),
+        }
     }
 }
 
@@ -35,13 +45,9 @@ impl Spotify for MockSpotify {
         ])
     }
 
-    async fn create_playlist(&self, name: &str) -> Result<Playlist, CoolioError> {
-        Ok(Playlist {
-            id: "playlist_id_1".to_string(),
-            name: name.to_string(),
-            automated: false,
-            artists: vec![],
-        })
+    async fn create_playlist(&self, name: &str) -> Result<SimplePlaylist, CoolioError> {
+        let p = SimplePlaylist::default();
+        Ok(p)
     }
 
     async fn playlist_add_items<'a>(
@@ -52,13 +58,9 @@ impl Spotify for MockSpotify {
         Ok(())
     }
 
-    async fn current_user_playlists(&self) -> Result<Vec<Playlist>, CoolioError> {
-        Ok(vec![Playlist {
-            id: "playlist_id_1".to_string(),
-            name: "name_1".to_string(),
-            automated: false,
-            artists: vec![],
-        }])
+    async fn current_user_playlists(&self) -> Result<Vec<SimplePlaylist>, CoolioError> {
+        let p = SimplePlaylist::default();
+        Ok(vec![p])
     }
 
     async fn artist_top_tracks(&self, name: &str) -> Result<Vec<SimpleTrack>, CoolioError> {

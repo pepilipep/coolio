@@ -1,4 +1,4 @@
-use std::ops::{Deref, DerefMut};
+use std::ops::Deref;
 
 use async_trait::async_trait;
 use tokio::sync::Mutex;

@@ -23,10 +23,11 @@ impl PlaylistService {
         spotify: &impl Spotify,
         storage: &StorageBehavior,
     ) -> Result<(), CoolioError> {
-        let mut playlists = spotify.current_user_playlists().await?;
+        let playlists = spotify.current_user_playlists().await?;
         let mut stored_playlists = storage.get_playlists().await?;
-
-        stored_playlists.append(&mut playlists);
+        for p in playlists {
+            stored_playlists.push(p.into())
+        }
         stored_playlists.dedup_by_key(|p| p.id.clone());
 
         for playlist in stored_playlists {

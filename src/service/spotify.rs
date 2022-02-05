@@ -2,7 +2,8 @@ use async_trait::async_trait;
 use chrono::{DateTime, NaiveDateTime, Utc};
 use rspotify::model::{
     AlbumId, AlbumType, ArtistId, FullArtist, FullPlaylist, FullTrack, Market, PlayableItem,
-    PlaylistId, PlaylistItem, SearchResult, SearchType, SimplifiedArtist, SimplifiedTrack, TrackId,
+    PlaylistId, PlaylistItem, SearchResult, SearchType, SimplifiedArtist, SimplifiedPlaylist,
+    SimplifiedTrack, TrackId,
 };
 use rspotify::prelude::*;
 use rspotify::{model::TimeLimits, AuthCodeSpotify};
@@ -10,6 +11,7 @@ use rspotify::{model::TimeLimits, AuthCodeSpotify};
 use crate::error::CoolioError;
 use crate::models::{Listen, Playlist};
 
+#[derive(Debug, Default, Clone)]
 pub struct SimpleArtist {
     pub id: String,
     pub name: String,
@@ -39,11 +41,13 @@ impl From<FullArtist> for SimpleArtist {
     }
 }
 
+#[derive(Debug, Default, Clone)]
 pub struct SimpleTrack {
     pub id: String,
     pub artists: Vec<SimpleArtist>,
 }
 
+#[derive(Debug, Default, Clone)]
 pub struct SimplePlayable {
     pub added_at: Option<DateTime<Utc>>,
     pub track: SimpleTrack,
@@ -79,12 +83,16 @@ impl From<PlaylistItem> for SimplePlayable {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct SimpleAlbum {
     pub id: String,
     pub release_date: DateTime<Utc>,
 }
 
+#[derive(Clone, Debug, Default)]
 pub struct SimplePlaylist {
+    pub id: String,
+    pub name: String,
     pub description: Option<String>,
     pub num_followers: u32,
     pub collaborative: bool,
@@ -95,11 +103,38 @@ pub struct SimplePlaylist {
 impl From<FullPlaylist> for SimplePlaylist {
     fn from(p: FullPlaylist) -> Self {
         SimplePlaylist {
+            id: p.id.uri(),
+            name: p.name,
             description: p.description,
             num_followers: p.followers.total,
             collaborative: p.collaborative,
             public: p.public.unwrap_or(false),
             tracks: p.tracks.items.into_iter().map(|x| x.into()).collect(),
+        }
+    }
+}
+
+impl From<SimplifiedPlaylist> for SimplePlaylist {
+    fn from(p: SimplifiedPlaylist) -> Self {
+        SimplePlaylist {
+            id: p.id.uri(),
+            name: p.name,
+            description: None,
+            num_followers: 0,
+            collaborative: p.collaborative,
+            public: p.public.unwrap_or(false),
+            tracks: vec![],
+        }
+    }
+}
+
+impl Into<Playlist> for SimplePlaylist {
+    fn into(self) -> Playlist {
+        Playlist {
+            id: self.id,
+            name: self.name,
+            artists: vec![],
+            automated: false,
         }
     }
 }
@@ -112,14 +147,14 @@ pub trait Spotify: Send + Sync {
         time_limit: Option<DateTime<Utc>>,
     ) -> Result<Vec<Listen>, CoolioError>;
 
-    async fn create_playlist(&self, name: &str) -> Result<Playlist, CoolioError>;
+    async fn create_playlist(&self, name: &str) -> Result<SimplePlaylist, CoolioError>;
 
     async fn playlist_add_items<'a>(
         &self,
         playlist_id: &str,
         items: impl IntoIterator<Item = String> + Send + 'a,
     ) -> Result<(), CoolioError>;
-    async fn current_user_playlists(&self) -> Result<Vec<Playlist>, CoolioError>;
+    async fn current_user_playlists(&self) -> Result<Vec<SimplePlaylist>, CoolioError>;
     async fn artist_top_tracks(&self, name: &str) -> Result<Vec<SimpleTrack>, CoolioError>;
     async fn album_tracks(&self, id: &str) -> Result<Vec<SimpleTrack>, CoolioError>;
     async fn artist_albums(
@@ -165,18 +200,13 @@ impl Spotify for HTTPSpotify {
             .collect::<Vec<Listen>>())
     }
 
-    async fn create_playlist(&self, name: &str) -> Result<Playlist, CoolioError> {
+    async fn create_playlist(&self, name: &str) -> Result<SimplePlaylist, CoolioError> {
         let me = self.spotify.current_user().await?;
         let playlist = self
             .spotify
             .user_playlist_create(&me.id, name, None, None, None)
             .await?;
-        Ok(Playlist {
-            id: playlist.id.uri(),
-            name: playlist.name,
-            automated: false,
-            artists: vec![],
-        })
+        Ok(playlist.into())
     }
 
     async fn playlist_add_items<'a>(
@@ -200,11 +230,11 @@ impl Spotify for HTTPSpotify {
         Ok(())
     }
 
-    async fn current_user_playlists(&self) -> Result<Vec<Playlist>, CoolioError> {
+    async fn current_user_playlists(&self) -> Result<Vec<SimplePlaylist>, CoolioError> {
         let limit = 50;
         let mut offset = 0;
 
-        let mut playlists = Vec::<Playlist>::new();
+        let mut playlists = Vec::<SimplePlaylist>::new();
 
         loop {
             let fetched = self
@@ -213,12 +243,7 @@ impl Spotify for HTTPSpotify {
                 .await?;
 
             for playlist in fetched.items {
-                playlists.push(Playlist {
-                    id: playlist.id.uri(),
-                    name: playlist.name,
-                    artists: Vec::<String>::new(),
-                    automated: false,
-                })
+                playlists.push(playlist.into())
             }
 
             if fetched.next.is_none() {

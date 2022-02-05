@@ -10,7 +10,7 @@ pub struct Listen {
     pub time: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Playlist {
     pub id: String,
     pub name: String,

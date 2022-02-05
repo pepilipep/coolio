@@ -22,10 +22,13 @@ async fn test_history_update() {
     s.history_update().await.unwrap();
 
     let st = st_to.as_mock().unwrap();
-    let listens = st.listens.lock().await;
+    let listens = &st.state.lock().await.listens;
 
     assert_eq!(listens.len(), 2);
 
     assert_eq!(listens[0].song_id, "song_id_1");
     assert_eq!(listens[1].song_id, "song_id_2");
 }
+
+#[tokio::test]
+async fn test_history_throwback() {}

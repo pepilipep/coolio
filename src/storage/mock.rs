@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use std::borrow::{Borrow, BorrowMut};
 use tokio::sync::Mutex;
 
 use crate::{
@@ -8,16 +7,20 @@ use crate::{
     storage::Storage,
 };
 
+#[derive(Clone, Debug, Default)]
+pub struct StorageState {
+    pub listens: Vec<Listen>,
+    pub playlists: Vec<Playlist>,
+}
+
 pub struct Mock {
-    pub listens: Mutex<Vec<Listen>>,
-    pub playlists: Mutex<Vec<Playlist>>,
+    pub state: Mutex<StorageState>,
 }
 
 impl Mock {
     pub fn new() -> Self {
         Mock {
-            listens: Mutex::new(vec![]),
-            playlists: Mutex::new(vec![]),
+            state: Mutex::new(StorageState::default()),
         }
     }
 }
@@ -25,16 +28,16 @@ impl Mock {
 #[async_trait]
 impl Storage for Mock {
     async fn add_history(&self, listen: Listen) -> Result<(), CoolioError> {
-        self.listens.lock().await.borrow_mut().push(listen);
+        self.state.lock().await.listens.push(listen);
         Ok(())
     }
 
     async fn get_history(&self) -> Result<Vec<Listen>, CoolioError> {
-        Ok(self.listens.lock().await.borrow().to_vec())
+        Ok(self.state.lock().await.listens.to_vec())
     }
 
     async fn get_last_listen(&self) -> Result<Listen, CoolioError> {
-        let h = self.listens.lock().await.borrow().to_vec();
+        let h = self.state.lock().await.listens.to_vec();
         if h.len() == 0 {
             return Err("no history".into());
         }
@@ -48,7 +51,7 @@ impl Storage for Mock {
     }
 
     async fn create_playlist(&self, id: &str, name: &str) -> Result<(), CoolioError> {
-        self.playlists.lock().await.borrow_mut().push(Playlist {
+        self.state.lock().await.playlists.push(Playlist {
             id: id.to_string(),
             name: name.to_string(),
             automated: true,
@@ -58,11 +61,11 @@ impl Storage for Mock {
     }
 
     async fn get_playlists(&self) -> Result<Vec<Playlist>, CoolioError> {
-        Ok(self.playlists.lock().await.borrow().to_vec())
+        Ok(self.state.lock().await.playlists.to_vec())
     }
 
     async fn get_playlist(&self, name: &str) -> Result<Playlist, CoolioError> {
-        let ps = self.playlists.lock().await.borrow().to_vec();
+        let ps = self.state.lock().await.playlists.to_vec();
         for p in ps {
             if p.name == name {
                 return Ok(p);
@@ -77,7 +80,7 @@ impl Storage for Mock {
         _playlist_name: &str,
         artist_id: &str,
     ) -> Result<(), CoolioError> {
-        let ps = self.playlists.lock().await.borrow().to_vec();
+        let ps = self.state.lock().await.playlists.to_vec();
         for mut p in ps {
             if p.id == playlist_id {
                 if p.artists.contains(&artist_id.to_string()) {
@@ -92,7 +95,7 @@ impl Storage for Mock {
     }
 
     async fn unlink_artist(&self, playlist_id: &str, artist_id: &str) -> Result<(), CoolioError> {
-        let mut ps = self.playlists.lock().await.borrow().to_vec();
+        let mut ps = self.state.lock().await.playlists.to_vec();
         for (i, p) in ps.iter_mut().enumerate() {
             if p.id == playlist_id {
                 if p.artists.contains(&artist_id.to_string()) {

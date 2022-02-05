@@ -27,4 +27,5 @@ async fn test_history_update() {
     assert_eq!(listens.len(), 2);
 
     assert_eq!(listens[0].song_id, "song_id_1");
+    assert_eq!(listens[1].song_id, "song_id_2");
 }

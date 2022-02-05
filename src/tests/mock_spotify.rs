@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use chrono::{DateTime, TimeZone, Utc};
+use chrono::{DateTime, Duration, TimeZone, Utc};
 use rspotify::model::AlbumType;
 use tokio::sync::Mutex;
 
@@ -13,7 +13,7 @@ use crate::{
 
 #[derive(Clone, Default)]
 pub struct SpotifyState {
-    playlists: Vec<SimplePlaylist>,
+    pub playlists: Vec<SimplePlaylist>,
 }
 
 struct TestAlbum {
@@ -27,7 +27,7 @@ struct TestArtist {
 }
 
 pub struct MockSpotify {
-    state: Mutex<SpotifyState>,
+    pub state: Mutex<SpotifyState>,
     artists: Vec<TestArtist>,
 }
 
@@ -205,16 +205,44 @@ impl MockSpotify {
 impl Spotify for MockSpotify {
     async fn current_user_recently_played(
         &self,
-        limit: u32,
-        time_limit: Option<DateTime<Utc>>,
+        _limit: u32,
+        _time_limit: Option<DateTime<Utc>>,
     ) -> Result<Vec<Listen>, CoolioError> {
         Ok(vec![
             Listen {
+                song_id: "track_2".to_string(),
+                time: Utc.timestamp(1580930644, 0),
+            },
+            Listen {
                 song_id: "track_1".to_string(),
-                time: Utc::now(),
+                time: Utc.timestamp(1580930644, 0),
+            },
+            Listen {
+                song_id: "track_1".to_string(),
+                time: Utc.timestamp(1580930644, 0),
+            },
+            Listen {
+                song_id: "track_1".to_string(),
+                time: Utc.timestamp(1580930644, 0),
             },
             Listen {
                 song_id: "track_2".to_string(),
+                time: Utc.timestamp(1580930644, 0),
+            },
+            Listen {
+                song_id: "track_4".to_string(),
+                time: Utc::now() - Duration::days(2),
+            },
+            Listen {
+                song_id: "track_3".to_string(),
+                time: Utc.timestamp(1580930644, 0),
+            },
+            Listen {
+                song_id: "track_3".to_string(),
+                time: Utc::now() - Duration::days(3),
+            },
+            Listen {
+                song_id: "track_3".to_string(),
                 time: Utc::now(),
             },
         ])
@@ -233,8 +261,8 @@ impl Spotify for MockSpotify {
         playlist_id: &str,
         items: impl IntoIterator<Item = String> + Send + 'a,
     ) -> Result<(), CoolioError> {
-        let ps = self.state.lock().await.playlists.to_vec();
-        for mut p in ps {
+        let ps = &mut self.state.lock().await.playlists;
+        for p in ps {
             if p.id == playlist_id {
                 let now = Utc::now();
                 let mut playable_items = Vec::<SimplePlayable>::new();

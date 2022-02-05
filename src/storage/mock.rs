@@ -80,8 +80,8 @@ impl Storage for Mock {
         _playlist_name: &str,
         artist_id: &str,
     ) -> Result<(), CoolioError> {
-        let ps = self.state.lock().await.playlists.to_vec();
-        for mut p in ps {
+        let ps = &mut self.state.lock().await.playlists;
+        for p in ps {
             if p.id == playlist_id {
                 if p.artists.contains(&artist_id.to_string()) {
                     return Err("duplicate artists".into());
@@ -95,7 +95,7 @@ impl Storage for Mock {
     }
 
     async fn unlink_artist(&self, playlist_id: &str, artist_id: &str) -> Result<(), CoolioError> {
-        let mut ps = self.state.lock().await.playlists.to_vec();
+        let ps = &mut self.state.lock().await.playlists.to_vec();
         for (i, p) in ps.iter_mut().enumerate() {
             if p.id == playlist_id {
                 if p.artists.contains(&artist_id.to_string()) {

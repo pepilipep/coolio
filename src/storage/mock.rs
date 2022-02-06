@@ -95,11 +95,12 @@ impl Storage for Mock {
     }
 
     async fn unlink_artist(&self, playlist_id: &str, artist_id: &str) -> Result<(), CoolioError> {
-        let ps = &mut self.state.lock().await.playlists.to_vec();
-        for (i, p) in ps.iter_mut().enumerate() {
+        let ps = &mut self.state.lock().await.playlists;
+        for p in ps {
             if p.id == playlist_id {
-                if p.artists.contains(&artist_id.to_string()) {
-                    p.artists.remove(i);
+                let len_before = p.artists.len();
+                p.artists.retain(|a| a != artist_id);
+                if len_before != p.artists.len() {
                     return Ok(());
                 } else {
                     return Err("artist not linked to playlist".into());

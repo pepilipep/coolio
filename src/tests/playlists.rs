@@ -247,3 +247,123 @@ async fn test_playlists_automate_error_on_not_exists() {
     sp.create_playlist("later_automated").await.unwrap();
     s.playlists_automate("doesntexist").await.unwrap_err();
 }
+
+#[tokio::test]
+async fn test_playlists_unlink() {
+    let st_to = StorageBehavior::from(MockStorage::new());
+    let sp = MockSpotify::new();
+    let s = Service::new(&sp, &st_to);
+    let input: &[u8] = "1\n".as_bytes();
+    let mut output = Vec::new();
+    let mut int = Interactor::new(input, &mut output);
+
+    s.playlists_create("maman").await.unwrap();
+    s.link_playlist_to_artist(&mut int, "maman", "kali", None)
+        .await
+        .unwrap();
+    s.unlink_artist_from_playlist("maman", "kali")
+        .await
+        .unwrap();
+
+    {
+        let st = st_to.as_mock().unwrap();
+        let stored_playlists = &st.state.lock().await.playlists;
+        assert_eq!(stored_playlists.len(), 1);
+        assert_eq!(stored_playlists[0].automated, true);
+        assert_eq!(stored_playlists[0].name, "maman");
+        assert_eq!(stored_playlists[0].artists.len(), 0);
+    }
+}
+
+#[tokio::test]
+async fn test_playlists_update() {
+    let st_to = StorageBehavior::from(MockStorage::new());
+    let sp = MockSpotify::new();
+    let s = Service::new(&sp, &st_to);
+
+    // prepare first playlist
+
+    s.playlists_create("maman").await.unwrap();
+
+    let input: &[u8] = "1\n".as_bytes();
+    let mut output = Vec::new();
+    let mut int = Interactor::new(input, &mut output);
+    s.link_playlist_to_artist(&mut int, "maman", "kali", None)
+        .await
+        .unwrap();
+
+    let input: &[u8] = "1\n".as_bytes();
+    let mut int = Interactor::new(input, &mut output);
+    s.link_playlist_to_artist(&mut int, "maman", "kendrick", Some(1))
+        .await
+        .unwrap();
+
+    let input: &[u8] = "1\n".as_bytes();
+    let mut int = Interactor::new(input, &mut output);
+    s.link_playlist_to_artist(&mut int, "maman", "arctic", Some(1))
+        .await
+        .unwrap();
+
+    // prepare second playlist
+
+    s.playlists_create("smaller").await.unwrap();
+
+    let input: &[u8] = "1\n".as_bytes();
+    let mut int = Interactor::new(input, &mut output);
+    s.link_playlist_to_artist(&mut int, "smaller", "kendrick", Some(1))
+        .await
+        .unwrap();
+
+    let input: &[u8] = "1\n".as_bytes();
+    let mut int = Interactor::new(input, &mut output);
+    s.link_playlist_to_artist(&mut int, "smaller", "dua", Some(1))
+        .await
+        .unwrap();
+
+    s.unlink_artist_from_playlist("smaller", "kendrick")
+        .await
+        .unwrap();
+
+    // assert songs were added in the playlist because of the seed
+    {
+        let playlists = &sp.state.lock().await.playlists;
+        assert_eq!(playlists.len(), 2);
+        assert_eq!(playlists[0].tracks.len(), 2);
+        assert_eq!(playlists[0].name, "maman");
+        assert_eq!(playlists[1].tracks.len(), 2);
+        assert_eq!(playlists[1].name, "smaller");
+
+        // seed
+        assert_eq!(playlists[1].tracks[0].track.id, "track_1");
+        assert_eq!(playlists[1].tracks[1].track.id, "track_25");
+    }
+
+    s.playlists_update().await.unwrap();
+
+    // assert songs in maman playlist
+    {
+        let playlists = &sp.state.lock().await.playlists;
+        assert_eq!(playlists[0].tracks.len(), 10);
+
+        // popular tracks of kali uchis
+        assert_eq!(playlists[0].tracks[2].track.id, "track_13");
+        assert_eq!(playlists[0].tracks[3].track.id, "track_14");
+        assert_eq!(playlists[0].tracks[4].track.id, "track_15");
+        assert_eq!(playlists[0].tracks[5].track.id, "track_16");
+        assert_eq!(playlists[0].tracks[6].track.id, "track_17");
+        // new kendrick album
+        assert_eq!(playlists[0].tracks[7].track.id, "track_4");
+        assert_eq!(playlists[0].tracks[8].track.id, "track_5");
+        assert_eq!(playlists[0].tracks[9].track.id, "track_6");
+    }
+
+    // assert songs in smaller playlist
+    {
+        let playlists = &sp.state.lock().await.playlists;
+        println!("{:?}", playlists[1].tracks);
+        assert_eq!(playlists[1].tracks.len(), 2);
+        // this means the unlinked artist didnt appear
+        assert_eq!(playlists[1].tracks[0].track.id, "track_1");
+        assert_eq!(playlists[1].tracks[1].track.id, "track_25");
+    }
+}

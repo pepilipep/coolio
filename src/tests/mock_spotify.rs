@@ -58,7 +58,7 @@ impl MockSpotify {
                         TestAlbum {
                             album: SimpleAlbum {
                                 id: "album_1_2".to_string(),
-                                release_date: Utc.timestamp(1432648000, 0),
+                                release_date: Utc::now() + Duration::days(1),
                             },
                             tracks: vec![
                                 "track_4".to_string(),
@@ -267,11 +267,22 @@ impl Spotify for MockSpotify {
                 let now = Utc::now();
                 let mut playable_items = Vec::<SimplePlayable>::new();
                 for i in items.into_iter() {
+                    let mut artists = Vec::<SimpleArtist>::new();
+                    for a in &self.artists {
+                        for alb in &a.albums {
+                            for t in &alb.tracks {
+                                if t == &i {
+                                    artists.push(a.artist.clone());
+                                }
+                            }
+                        }
+                    }
+
                     playable_items.push(SimplePlayable {
                         added_at: Some(now),
                         track: SimpleTrack {
                             id: i.clone(),
-                            artists: vec![],
+                            artists,
                         },
                     })
                 }

@@ -21,17 +21,18 @@ use super::spotify::Spotify;
 pub struct PlaylistService {}
 
 impl PlaylistService {
-    pub async fn list<R: BufRead + Send + Sync, W: Write + Send + Sync>(
+    pub async fn list<'a, R: BufRead + Send + Sync, W: Write + Send + Sync>(
         &self,
         spotify: &impl Spotify,
         storage: &StorageBehavior,
-        writer: &mut Interactor<R, W>,
+        writer: &mut Interactor<'a, R, W>,
     ) -> Result<(), CoolioError> {
         let playlists = spotify.current_user_playlists().await?;
         let mut stored_playlists = storage.get_playlists().await?;
         for p in playlists {
             stored_playlists.push(p.into())
         }
+        stored_playlists.sort_by(|a, b| a.id.cmp(&b.id));
         stored_playlists.dedup_by_key(|p| p.id.clone());
 
         writer.list_playlist(stored_playlists)?;
@@ -39,11 +40,11 @@ impl PlaylistService {
         Ok(())
     }
 
-    pub async fn show<R: BufRead + Send + Sync, W: Write + Send + Sync>(
+    pub async fn show<'a, R: BufRead + Send + Sync, W: Write + Send + Sync>(
         &self,
         spotify: &impl Spotify,
         storage: &StorageBehavior,
-        writer: &mut Interactor<R, W>,
+        writer: &mut Interactor<'a, R, W>,
         name: &str,
     ) -> Result<(), CoolioError> {
         let playlist = storage.get_playlist(name).await?;
@@ -105,11 +106,11 @@ impl PlaylistService {
         Ok(())
     }
 
-    pub async fn link_playlist_to_artist<R: BufRead + Send + Sync, W: Write + Send + Sync>(
+    pub async fn link_playlist_to_artist<'a, R: BufRead + Send + Sync, W: Write + Send + Sync>(
         &self,
         spotify: &impl Spotify,
         storage: &StorageBehavior,
-        writer: &mut Interactor<R, W>,
+        writer: &mut Interactor<'a, R, W>,
         playlist: &str,
         artist: &str,
         seed: Option<usize>,

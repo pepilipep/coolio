@@ -1,8 +1,5 @@
-use std::io::stdin;
-use std::io::stdout;
-use std::io::BufReader;
-use std::io::Stdin;
-use std::io::Stdout;
+use std::io::BufRead;
+use std::io::Write;
 
 use async_trait::async_trait;
 
@@ -45,16 +42,24 @@ pub trait ServiceTrait: Send + Sync {
         size: Option<usize>,
     ) -> Result<(), CoolioError>;
 
-    async fn playlists_list(&self) -> Result<(), CoolioError>;
+    async fn playlists_list<'a, R: BufRead + Send + Sync, W: Write + Send + Sync>(
+        &self,
+        int: &mut Interactor<'a, R, W>,
+    ) -> Result<(), CoolioError>;
 
-    async fn playlists_show(&self, name: &str) -> Result<(), CoolioError>;
+    async fn playlists_show<'a, R: BufRead + Send + Sync, W: Write + Send + Sync>(
+        &self,
+        int: &mut Interactor<'a, R, W>,
+        name: &str,
+    ) -> Result<(), CoolioError>;
 
     async fn playlists_create(&self, name: &str) -> Result<(), CoolioError>;
 
     async fn playlists_automate(&self, name: &str) -> Result<(), CoolioError>;
 
-    async fn link_playlist_to_artist(
+    async fn link_playlist_to_artist<'a, R: BufRead + Send + Sync, W: Write + Send + Sync>(
         &self,
+        int: &mut Interactor<'a, R, W>,
         playlist: &str,
         artist: &str,
         seed: Option<usize>,
@@ -67,14 +72,6 @@ pub trait ServiceTrait: Send + Sync {
     ) -> Result<(), CoolioError>;
 
     async fn playlists_update(&self) -> Result<(), CoolioError>;
-}
-
-impl<'a, S: Spotify> Service<'a, S> {
-    fn new_interactor(&self) -> Interactor<BufReader<Stdin>, Stdout> {
-        let r = BufReader::new(stdin());
-        let w = stdout();
-        Interactor::new(r, w)
-    }
 }
 
 #[async_trait]
@@ -94,15 +91,20 @@ impl<'a, S: Spotify> ServiceTrait for Service<'a, S> {
             .await
     }
 
-    async fn playlists_list(&self) -> Result<(), CoolioError> {
-        self.playlists
-            .list(self.spotify, self.storage, &mut self.new_interactor())
-            .await
+    async fn playlists_list<'b, R: BufRead + Send + Sync, W: Write + Send + Sync>(
+        &self,
+        int: &mut Interactor<'b, R, W>,
+    ) -> Result<(), CoolioError> {
+        self.playlists.list(self.spotify, self.storage, int).await
     }
 
-    async fn playlists_show(&self, name: &str) -> Result<(), CoolioError> {
+    async fn playlists_show<'b, R: BufRead + Send + Sync, W: Write + Send + Sync>(
+        &self,
+        int: &mut Interactor<'b, R, W>,
+        name: &str,
+    ) -> Result<(), CoolioError> {
         self.playlists
-            .show(self.spotify, self.storage, &mut self.new_interactor(), name)
+            .show(self.spotify, self.storage, int, name)
             .await
     }
 
@@ -118,21 +120,15 @@ impl<'a, S: Spotify> ServiceTrait for Service<'a, S> {
             .await
     }
 
-    async fn link_playlist_to_artist(
+    async fn link_playlist_to_artist<'b, R: BufRead + Send + Sync, W: Write + Send + Sync>(
         &self,
+        int: &mut Interactor<'b, R, W>,
         playlist: &str,
         artist: &str,
         seed: Option<usize>,
     ) -> Result<(), CoolioError> {
         self.playlists
-            .link_playlist_to_artist(
-                self.spotify,
-                self.storage,
-                &mut self.new_interactor(),
-                playlist,
-                artist,
-                seed,
-            )
+            .link_playlist_to_artist(self.spotify, self.storage, int, playlist, artist, seed)
             .await
     }
 

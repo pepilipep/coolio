@@ -1,9 +1,17 @@
-use std::ops::Deref;
+use std::{
+    io::{BufRead, Write},
+    ops::Deref,
+};
 
 use async_trait::async_trait;
 use tokio::sync::Mutex;
 
-use crate::{error::CoolioError, models::ThrowbackPeriod, parser::Parser, service::ServiceTrait};
+use crate::{
+    error::CoolioError,
+    models::ThrowbackPeriod,
+    parser::Parser,
+    service::{io::Interactor, ServiceTrait},
+};
 
 #[derive(Clone, Copy, PartialEq, Eq, Default, Debug)]
 struct Calls {
@@ -40,12 +48,19 @@ impl ServiceTrait for MockService {
         Ok(())
     }
 
-    async fn playlists_list(&self) -> Result<(), CoolioError> {
+    async fn playlists_list<'b, R: BufRead + Send + Sync, W: Write + Send + Sync>(
+        &self,
+        _int: &mut Interactor<'b, R, W>,
+    ) -> Result<(), CoolioError> {
         self.calls.lock().await.playlists_list += 1;
         Ok(())
     }
 
-    async fn playlists_show(&self, _name: &str) -> Result<(), CoolioError> {
+    async fn playlists_show<'b, R: BufRead + Send + Sync, W: Write + Send + Sync>(
+        &self,
+        _int: &mut Interactor<'b, R, W>,
+        _name: &str,
+    ) -> Result<(), CoolioError> {
         self.calls.lock().await.playlists_show += 1;
         Ok(())
     }
@@ -60,8 +75,9 @@ impl ServiceTrait for MockService {
         Ok(())
     }
 
-    async fn link_playlist_to_artist(
+    async fn link_playlist_to_artist<'b, R: BufRead + Send + Sync, W: Write + Send + Sync>(
         &self,
+        _int: &mut Interactor<'b, R, W>,
         _playlist: &str,
         _artist: &str,
         _seed: Option<usize>,

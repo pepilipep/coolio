@@ -4,13 +4,13 @@ use crate::{error::CoolioError, models::Playlist};
 
 use super::spotify::{SimpleArtist, SimplePlaylist};
 
-pub struct Interactor<R: BufRead + Send + Sync, W: Write + Send + Sync> {
+pub struct Interactor<'a, R: BufRead + Send + Sync, W: Write + Send + Sync> {
     reader: R,
-    writer: W,
+    writer: &'a mut W,
 }
 
-impl<R: BufRead + Send + Sync, W: Write + Send + Sync> Interactor<R, W> {
-    pub fn new(reader: R, writer: W) -> Self {
+impl<'a, R: BufRead + Send + Sync, W: Write + Send + Sync> Interactor<'a, R, W> {
+    pub fn new(reader: R, writer: &'a mut W) -> Self {
         Interactor { reader, writer }
     }
 
@@ -88,7 +88,7 @@ impl<R: BufRead + Send + Sync, W: Write + Send + Sync> Interactor<R, W> {
             input = input.trim().to_string();
 
             if let Ok(choice) = input.parse::<usize>() {
-                if choice >= 1 && choice < artists.len() {
+                if choice >= 1 && choice <= artists.len() {
                     chosen = choice;
                     break;
                 }

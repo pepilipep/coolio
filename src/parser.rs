@@ -1,5 +1,7 @@
 use std::ffi::OsString;
+use std::io::{stdin, stdout, BufReader, Stdin, Stdout};
 
+use crate::service::io::Interactor;
 use crate::service::ServiceTrait;
 use crate::{error::CoolioError, models::ThrowbackPeriod};
 use clap::{app_from_crate, arg, App, AppSettings, ArgMatches};
@@ -79,6 +81,10 @@ impl Parser {
     }
 
     pub async fn parse<S: ServiceTrait>(&self, service: &S) -> Result<(), CoolioError> {
+        let r = BufReader::new(stdin());
+        let w = &mut stdout();
+        let mut int = Interactor::<BufReader<Stdin>, Stdout>::new(r, w);
+
         match self.matches.subcommand() {
             Some(("history", history_matches)) => match history_matches.subcommand() {
                 Some(("update", _update_matches)) => service.history_update().await,
@@ -94,7 +100,7 @@ impl Parser {
                 _ => unreachable!(),
             },
             Some(("playlists", playlists_matches)) => match playlists_matches.subcommand() {
-                Some(("list", _list_matches)) => service.playlists_list().await,
+                Some(("list", _list_matches)) => service.playlists_list(&mut int).await,
                 Some(("create", create_matches)) => {
                     service
                         .playlists_create(create_matches.value_of("PLAYLIST").unwrap())
@@ -103,6 +109,7 @@ impl Parser {
                 Some(("link", link_matches)) => {
                     service
                         .link_playlist_to_artist(
+                            &mut int,
                             link_matches.value_of("PLAYLIST").unwrap(),
                             link_matches.value_of("ARTIST").unwrap(),
                             link_matches.value_of_t("seed").ok(),
@@ -125,7 +132,7 @@ impl Parser {
                 }
                 Some(("show", show_matches)) => {
                     service
-                        .playlists_show(show_matches.value_of("PLAYLIST").unwrap())
+                        .playlists_show(&mut int, show_matches.value_of("PLAYLIST").unwrap())
                         .await
                 }
                 _ => unreachable!(),

@@ -217,3 +217,33 @@ async fn test_playlists_link_nonexisting_artist() {
         .unwrap_err();
     assert_eq!(output.len(), 0);
 }
+
+#[tokio::test]
+async fn test_playlists_automate() {
+    let st_to = StorageBehavior::from(MockStorage::new());
+    let sp = MockSpotify::new();
+    let s = Service::new(&sp, &st_to);
+
+    sp.create_playlist("maman").await.unwrap();
+    sp.create_playlist("later_automated").await.unwrap();
+    s.playlists_automate("later_automated").await.unwrap();
+
+    {
+        let st = st_to.as_mock().unwrap();
+        let stored_playlists = &st.state.lock().await.playlists;
+        assert_eq!(stored_playlists.len(), 1);
+        assert_eq!(stored_playlists[0].automated, true);
+        assert_eq!(stored_playlists[0].name, "later_automated");
+    }
+}
+
+#[tokio::test]
+async fn test_playlists_automate_error_on_not_exists() {
+    let st_to = StorageBehavior::from(MockStorage::new());
+    let sp = MockSpotify::new();
+    let s = Service::new(&sp, &st_to);
+
+    sp.create_playlist("maman").await.unwrap();
+    sp.create_playlist("later_automated").await.unwrap();
+    s.playlists_automate("doesntexist").await.unwrap_err();
+}

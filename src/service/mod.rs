@@ -1,10 +1,18 @@
+use std::io::stdin;
+use std::io::stdout;
+use std::io::BufReader;
+use std::io::Stdin;
+use std::io::Stdout;
+
 use async_trait::async_trait;
 
 use crate::{error::CoolioError, models::ThrowbackPeriod, storage::StorageBehavior};
 
+use self::io::Interactor;
 use self::{history::HistoryService, playlists::PlaylistService, spotify::Spotify};
 
 pub mod history;
+pub mod io;
 pub mod playlists;
 pub mod spotify;
 
@@ -61,6 +69,14 @@ pub trait ServiceTrait: Send + Sync {
     async fn playlists_update(&self) -> Result<(), CoolioError>;
 }
 
+impl<'a, S: Spotify> Service<'a, S> {
+    fn new_interactor(&self) -> Interactor<BufReader<Stdin>, Stdout> {
+        let r = BufReader::new(stdin());
+        let w = stdout();
+        Interactor::new(r, w)
+    }
+}
+
 #[async_trait]
 impl<'a, S: Spotify> ServiceTrait for Service<'a, S> {
     async fn history_update(&self) -> Result<(), CoolioError> {
@@ -79,11 +95,15 @@ impl<'a, S: Spotify> ServiceTrait for Service<'a, S> {
     }
 
     async fn playlists_list(&self) -> Result<(), CoolioError> {
-        self.playlists.list(self.spotify, self.storage).await
+        self.playlists
+            .list(self.spotify, self.storage, &mut self.new_interactor())
+            .await
     }
 
     async fn playlists_show(&self, name: &str) -> Result<(), CoolioError> {
-        self.playlists.show(self.spotify, self.storage, name).await
+        self.playlists
+            .show(self.spotify, self.storage, &mut self.new_interactor(), name)
+            .await
     }
 
     async fn playlists_create(&self, name: &str) -> Result<(), CoolioError> {
@@ -105,7 +125,14 @@ impl<'a, S: Spotify> ServiceTrait for Service<'a, S> {
         seed: Option<usize>,
     ) -> Result<(), CoolioError> {
         self.playlists
-            .link_playlist_to_artist(self.spotify, self.storage, playlist, artist, seed)
+            .link_playlist_to_artist(
+                self.spotify,
+                self.storage,
+                &mut self.new_interactor(),
+                playlist,
+                artist,
+                seed,
+            )
             .await
     }
 

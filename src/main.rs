@@ -6,10 +6,9 @@ mod service;
 mod settings;
 mod storage;
 
-use std::env;
-
 use error::CoolioError;
 use parser::Parser;
+use std::env;
 
 use builder::{new_spotify, new_storage};
 use service::Service;

@@ -1,5 +1,7 @@
 use std::cmp::min;
 use std::collections::HashMap;
+use std::io::BufRead;
+use std::io::Write;
 
 use chrono::DateTime;
 use chrono::Utc;
@@ -11,6 +13,7 @@ use crate::models::Playlist;
 use crate::storage::Storage;
 use crate::storage::StorageBehavior;
 
+use super::io::Interactor;
 use super::spotify::SimpleArtist;
 use super::spotify::SimpleTrack;
 use super::spotify::Spotify;
@@ -18,10 +21,11 @@ use super::spotify::Spotify;
 pub struct PlaylistService {}
 
 impl PlaylistService {
-    pub async fn list(
+    pub async fn list<R: BufRead + Send + Sync, W: Write + Send + Sync>(
         &self,
         spotify: &impl Spotify,
         storage: &StorageBehavior,
+        writer: &mut Interactor<R, W>,
     ) -> Result<(), CoolioError> {
         let playlists = spotify.current_user_playlists().await?;
         let mut stored_playlists = storage.get_playlists().await?;
@@ -30,44 +34,27 @@ impl PlaylistService {
         }
         stored_playlists.dedup_by_key(|p| p.id.clone());
 
-        for playlist in stored_playlists {
-            if playlist.automated {
-                println!(
-                    "{} [automated, number of artists: {}]",
-                    playlist.name,
-                    playlist.artists.len()
-                )
-            } else {
-                println!("{}", playlist.name);
-            }
-        }
+        writer.list_playlist(stored_playlists)?;
 
         Ok(())
     }
 
-    pub async fn show(
+    pub async fn show<R: BufRead + Send + Sync, W: Write + Send + Sync>(
         &self,
         spotify: &impl Spotify,
         storage: &StorageBehavior,
+        writer: &mut Interactor<R, W>,
         name: &str,
     ) -> Result<(), CoolioError> {
         let playlist = storage.get_playlist(name).await?;
         let external_playlist = spotify.playlist(&playlist.id).await?;
 
-        println!("Artists:");
-        for art_id in playlist.artists {
-            let artist = spotify.artist(&art_id).await?;
-            println!(
-                "\t{} (popularity: {}, followers: {})",
-                artist.name, artist.popularity, artist.num_followers
-            );
+        let mut artists = Vec::<SimpleArtist>::new();
+        for a_id in playlist.artists {
+            artists.push(spotify.artist(&a_id).await?);
         }
 
-        println!("Description: {:?}", external_playlist.description);
-        println!("Number of tracks: {}", external_playlist.tracks.len());
-        println!("Number of followers: {}", external_playlist.num_followers);
-        println!("Is collaborative: {}", external_playlist.collaborative);
-        println!("Is public: {:?}", external_playlist.public);
+        writer.show_playlist(&external_playlist, &artists)?;
 
         Ok(())
     }
@@ -118,52 +105,25 @@ impl PlaylistService {
         Ok(())
     }
 
-    pub async fn link_playlist_to_artist(
+    pub async fn link_playlist_to_artist<R: BufRead + Send + Sync, W: Write + Send + Sync>(
         &self,
         spotify: &impl Spotify,
         storage: &StorageBehavior,
+        writer: &mut Interactor<R, W>,
         playlist: &str,
         artist: &str,
         seed: Option<usize>,
     ) -> Result<(), CoolioError> {
         let playlist = storage.get_playlist(playlist).await?;
-
         let artists = spotify.search_artists(artist).await?;
-
-        let mut count_id = 1;
-        println!("choose one of the following artists:");
-        for art in &artists {
-            println!(
-                "[{}] {} (followers: {})",
-                count_id, art.name, art.num_followers
-            );
-            count_id += 1;
-        }
-
-        let chosen: usize;
-        loop {
-            let mut input = String::new();
-            std::io::stdin().read_line(&mut input)?;
-
-            input = input.trim().to_string();
-
-            if let Ok(choice) = input.parse::<usize>() {
-                if choice >= 1 && choice < artists.len() {
-                    chosen = choice;
-                    break;
-                }
-            }
-            println!("Wrong choice. Try again")
-        }
-
-        let chosen_artist_id = &artists[chosen - 1].id;
+        let chosen_artist_id = writer.choose_artist(&artists)?;
 
         storage
-            .link_artist(&playlist.id, &playlist.name, chosen_artist_id)
+            .link_artist(&playlist.id, &playlist.name, &chosen_artist_id)
             .await?;
 
         if let Some(seed) = seed {
-            self.seed_artist_popular(spotify, storage, chosen_artist_id, &playlist.id, seed)
+            self.seed_artist_popular(spotify, storage, &chosen_artist_id, &playlist.id, seed)
                 .await?;
         }
 
